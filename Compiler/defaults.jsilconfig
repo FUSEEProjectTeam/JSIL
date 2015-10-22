@@ -1,5 +1,5 @@
 ﻿{
-  "OutputDirectory": "%currentdirectory%",
+  "OutputDirectory": "%configdirectory%",
   "ProxyWarnings": false,
   "Assemblies": {
     "Stubbed": [
@@ -7,7 +7,9 @@
       "^System,",
       "^System\\.(.+),",
       "^Microsoft\\.(.+),",
-      "FSharp.Core,"
+      "Mono.*,",
+      "FSharp.Core",
+	  "nunit\\.framework,"
     ],
     "Ignored": [
       "Microsoft\\.VisualC,",
@@ -15,10 +17,17 @@
       "SMDiagnostics,",
       "System\\.EnterpriseServices,",
       "System\\.Security,",
+      "System\\.Runtime\\.Serialization,",	  
       "System\\.Runtime\\.Serialization\\.Formatters\\.Soap,",
       "System\\.Runtime\\.DurableInstancing,",
       "System\\.Data\\.SqlXml,",
-      "JSIL\\.Meta,"
+      "JSIL.Meta,",
+      "Mono\\.Posix\\.*,",
+	  "System\\.Web\\.*,",
+	  "System\\.ServiceModel\\.*",
+	  "^mscorlib, Version=2",
+	  "System, Version=2",
+	  "^System\\.(.+), Version=2"
     ]
   },
   "ProfileSettings": {
