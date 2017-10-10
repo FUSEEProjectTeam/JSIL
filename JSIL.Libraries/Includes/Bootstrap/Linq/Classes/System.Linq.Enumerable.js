@@ -383,6 +383,133 @@
         }
       );
 
+      $.Method({ Static: true, Public: true }, "OrderBy",
+         new JSIL.MethodSignature($jsilcore.TypeRef("System.Linq.IOrderedEnumerable`1", ["!!0"]),
+            [
+                $jsilcore.TypeRef("System.Collections.Generic.IEnumerable`1", ["!!0"]),
+                $jsilcore.TypeRef("System.Func`2", ["!!0", "!!1"])
+            ],
+                ["TSource", "TKey"]),
+                
+        function(TSource, TKey, source, keySelector){  
+
+            var srcEumerator = JSIL.GetEnumerator(source, TSource);
+            var moveNext = $jsilcore.System.Collections.IEnumerator.MoveNext;
+            var getCurrent = $jsilcore.System.Collections.IEnumerator.get_Current;
+            
+            var res =  JSIL.EnumerableToArray(source, TSource);
+            var i = -1;
+            var swapped = true;
+
+            //Bubble sort
+            while(swapped){  
+
+                swapped = false; 
+
+                while(moveNext.Call(srcEumerator)){
+
+                    i++;
+                    var current = getCurrent.Call(srcEumerator);
+                    var predicatVal = keySelector(current);
+
+                    if(i+1 <= res.length-1){
+                        if(predicatVal > keySelector(res[i+1])){
+                            var temp = res[i];
+                            res[i] = res[i+1];
+                            res[i+1] = temp;
+                            swapped = true;
+                        }
+                    }
+                }
+                if(swapped){
+                    //Reset Enumerator
+                    srcEumerator = JSIL.GetEnumerator(res, TSource)
+                    i = -1; 
+                }
+            }
+            return res;               
+        }        
+      );
+
+      $.Method({ Static: true, Public: true }, "SequenceEqual",
+        new JSIL.MethodSignature($.Boolean,
+        [
+            $jsilcore.TypeRef("System.Collections.Generic.IEnumerable`1",
+              ["!!0"]),
+            $jsilcore.TypeRef("System.Collections.Generic.IEnumerable`1",
+              ["!!0"])
+              
+         ],        
+         ["TSource"]),
+        function (TSource, sourceOne, sourceTwo) {
+
+            var enumeratorOne = JSIL.GetEnumerator(sourceOne, TSource);
+            var enumeratorTwo = JSIL.GetEnumerator(sourceTwo, TSource);
+            var moveNext = $jsilcore.System.Collections.IEnumerator.MoveNext;
+            var getCurrent = $jsilcore.System.Collections.IEnumerator.get_Current;
+
+            var countOne = 0;
+            var countTwo = 0;
+
+            try{
+                while(moveNext.Call(enumeratorOne)){
+                    countOne ++;
+                }
+                enumeratorOne = JSIL.GetEnumerator(sourceOne, TSource);
+                
+                while(moveNext.Call(enumeratorTwo)){
+                    countTwo ++;
+                }
+                enumeratorTwo = JSIL.GetEnumerator(sourceTwo, TSource);
+
+                if (countOne != countTwo) return false;
+
+                while (moveNext.Call(enumeratorOne) && moveNext.Call(enumeratorTwo))
+                {
+                    if (getCurrent.Call(enumeratorOne) !== getCurrent.Call(enumeratorTwo))
+                        return false;
+                }
+                return true;
+
+            }
+            finally{
+                JSIL.Dispose(enumeratorOne);
+                JSIL.Dispose(enumeratorTwo);
+            } 
+        }
+      );
+
+      $.Method({ Static: true, Public: true }, "Take",
+        new JSIL.MethodSignature(
+          $jsilcore.TypeRef("System.Collections.Generic.IEnumerable`1",["!!0"]),
+          [$jsilcore.TypeRef("System.Collections.Generic.IEnumerable`1", ["!!0"]), "System.Int32"],
+          ["TSource"]
+        ),
+        function (TSource, source, count) {
+            
+            var enumerator = JSIL.GetEnumerator(source, TSource);         
+            var moveNext = $jsilcore.System.Collections.IEnumerator.MoveNext;
+            var getCurrent = $jsilcore.System.Collections.IEnumerator.get_Current;
+            var res = [];
+            var i = 0;
+
+            try {
+                    while (moveNext.Call(enumerator)) {
+                        if (i < count){
+                            res.push(getCurrent.Call(enumerator));
+                            i++;
+                        }
+                        else
+                            break;                        
+                    }
+                } finally {
+                    JSIL.Dispose(enumerator);
+                }
+
+                return res;
+        }
+      );
+
       $.Method({ Static: true, Public: true }, "Skip",
         new JSIL.MethodSignature(
           $jsilcore.TypeRef("System.Collections.Generic.IEnumerable`1",
