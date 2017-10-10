@@ -65,7 +65,8 @@ namespace JSIL {
 
             if (output.SourceMapBuilder != null)
             {
-                AfterNodeProcessed += AddSourceMapInfo;
+                BeforeNodeProcessed += AddSourceMapInfo;
+                //AfterNodeProcessed += AddSourceMapInfoEnd;
             }
         }
 
@@ -1262,6 +1263,44 @@ namespace JSIL {
             Output.RPar();
         }
 
+        public void VisitNode(JSMethodPointerInfoExpression moe)
+        {
+            var methodName = Util.EscapeIdentifier(moe.Method.GetName(true), EscapingMode.MemberIdentifier);
+
+            Output.WriteRaw("new JSIL.MethodPointerInfo");
+            Output.LPar();
+
+            Output.Identifier(
+                moe.Reference.DeclaringType, ReferenceContext, IncludeTypeParens.Peek()
+            );
+            Output.Comma();
+
+            Output.WriteRaw("\"");
+            Output.Identifier(methodName);
+            Output.WriteRaw("\"");
+            Output.Comma();
+
+            SignatureCacher.WriteSignatureToOutput(
+                Output, Stack.OfType<JSFunctionExpression>().FirstOrDefault(),
+                moe.Reference, moe.Method.Signature, ReferenceContext, false
+            );
+            Output.Comma();
+
+            Output.Value(moe.Method.IsStatic);
+            Output.Comma();
+            Output.Value(moe.IsVirtual);
+
+            if (moe.GenericArguments != null && moe.GenericArguments.Any())
+            {
+                Output.Comma();
+                Output.OpenBracket();
+                Output.CommaSeparatedList(moe.GenericArguments, ReferenceContext);
+                Output.CloseBracket();
+            }
+
+            Output.RPar();
+        }
+
         public void VisitNode(JSFieldOfExpression moe)
         {
             var fieldName = Util.EscapeIdentifier(moe.Field.ChangedName ?? moe.Field.Name, EscapingMode.MemberIdentifier);
@@ -1343,6 +1382,15 @@ namespace JSIL {
 
         public void VisitNode (JSReferenceExpression reference) {
             Visit(reference.Referent);
+        }
+        public void VisitNode (JSWrapExpression wrap)
+        {
+            Visit(wrap.OriginalType);
+            Output.Dot();
+            Output.WriteRaw("$Box");
+            Output.LPar();
+            Visit(wrap.OriginalValue);
+            Output.RPar();
         }
 
         public void VisitNode (JSReadThroughReferenceExpression rtre) {
@@ -2045,8 +2093,9 @@ namespace JSIL {
 
             if (newarray.Dimensions != null) {
                 Output.Comma();
-
+                Output.OpenBracket();
                 CommaSeparatedList(newarray.Dimensions, false);
+                Output.CloseBracket();
             }
 
             if (newarray.SizeOrArrayInitializer != null) {
@@ -2558,19 +2607,21 @@ namespace JSIL {
             Output.RPar();
         }
 
-        public void VisitNode(JSDeferredExpression function)
-        {
-            Output.WriteRaw("function () { return ");
-            Visit(function.InnerExpression);
-            Output.WriteRaw("; }.bind(this)");
-        }
-
         private void AddSourceMapInfo(JSNode node)
         {
-            if (node.SymbolInfo != null && node.SymbolInfo.Any())
+            if (node.SymbolInfo != null)
             {
-                Output.SourceMapBuilder.AddInfo(Output.OutputWithPositionInfo.Line, Output.OutputWithPositionInfo.FirstNonSpace, node.SymbolInfo);
-                //Output.Comment(string.Join("; ", node.SymbolInfo.Select(item => item.StartLine + ":" + item.StartColumn)));
+                //Output.Comment(string.Join("; ", node.SymbolInfo.SequencePoints.Select(item => item.StartLine + ":" + item.StartColumn)));
+                Output.SourceMapBuilder.AddInfo(Output.OutputWithPositionInfo.Line, Output.OutputWithPositionInfo.Column, node.SymbolInfo.SequencePoints);
+            }
+        }
+
+        private void AddSourceMapInfoEnd(JSNode node)
+        {
+            if (node.SymbolInfo != null)
+            {
+                Output.SourceMapBuilder.AddInfoEnd(Output.OutputWithPositionInfo.Line, Output.OutputWithPositionInfo.Column, node.SymbolInfo.SequencePoints);
+                //Output.Comment("--" + string.Join("; ", node.SymbolInfo.SequencePoints.Select(item => item.EndLine + ":" + item.EndColumn)));
             }
         }
     }

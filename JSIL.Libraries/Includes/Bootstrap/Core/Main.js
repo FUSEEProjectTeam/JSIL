@@ -20,9 +20,9 @@ JSIL.DeclareNamespace("System.Runtime.InteropServices");
 //? include("Helpers/JSIL.EnumerableToArray.js"); writeln();
 //? include("Helpers/JSIL.GetEnumerator.js"); writeln();
 //? include("Helpers/JSIL.ParseDataURL.js"); writeln();
+//? include("Helpers/JSIL.MakeIConvertibleMethods.js"); writeln();
 
 //? include("Classes/JSIL.ArrayEnumerator.js"); writeln();
-//? include("Classes/JSIL.ArrayInterfaceOverlay.js"); writeln();
 
 //? include("Classes/System.Boolean.js"); writeln();
 //? include("Classes/System.Char.js"); writeln();
@@ -62,6 +62,7 @@ JSIL.DeclareNamespace("System.Runtime.InteropServices");
 //? include("Classes/System.Environment.js"); writeln();
 //? include("Classes/System.Console.js"); writeln();
 //? include("Classes/System.Math.js"); writeln();
+//? include("Interfaces/System.IConvertible.js"); writeln();
 //? include("Classes/System.Convert.js"); writeln();
 //? include("Classes/System.BitConverter.js"); writeln();
 
@@ -119,19 +120,33 @@ JSIL.MakeClass("System.ComponentModel.TypeConverter", "System.ComponentModel.Exp
 
 JSIL.MakeDelegate("System.Action", true, [], JSIL.MethodSignature.Void);
 JSIL.MakeDelegate("System.Action`1", true, ["T"], new JSIL.MethodSignature(null, [new JSIL.GenericParameter("T", "System.Action`1").in()]));
-JSIL.MakeDelegate("System.Action`2", true, ["T1", "T2"], new JSIL.MethodSignature(null, [new JSIL.GenericParameter("T1", "System.Action`2").in(), new JSIL.GenericParameter("T2", "System.Action`2").in()]));
-JSIL.MakeDelegate("System.Action`3", true, ["T1", "T2", "T3"], new JSIL.MethodSignature(null, [
-      new JSIL.GenericParameter("T1", "System.Action`3").in(), new JSIL.GenericParameter("T2", "System.Action`3").in(),
-      new JSIL.GenericParameter("T3", "System.Action`3").in()
-]));
-
 JSIL.MakeDelegate("System.Func`1", true, ["TResult"], new JSIL.MethodSignature(new JSIL.GenericParameter("TResult", "System.Func`1").out(), null));
 JSIL.MakeDelegate("System.Func`2", true, ["T", "TResult"], new JSIL.MethodSignature(new JSIL.GenericParameter("TResult", "System.Func`2").out(), [new JSIL.GenericParameter("T", "System.Func`2").in()]));
-JSIL.MakeDelegate("System.Func`3", true, ["T1", "T2", "TResult"], new JSIL.MethodSignature(new JSIL.GenericParameter("TResult", "System.Func`3").out(), [new JSIL.GenericParameter("T1", "System.Func`3").in(), new JSIL.GenericParameter("T2", "System.Func`3").in()]));
-JSIL.MakeDelegate("System.Func`4", true, ["T1", "T2", "T3", "TResult"], new JSIL.MethodSignature(new JSIL.GenericParameter("TResult", "System.Func`4").out(), [
-      new JSIL.GenericParameter("T1", "System.Func`4").in(), new JSIL.GenericParameter("T2", "System.Func`4").in(),
-      new JSIL.GenericParameter("T3", "System.Func`4").in()
-]));
+
+(function() {
+  for (var i = 2; i <= 16; i++) {
+    var actionName = "System.Action`" + i;
+    var funcName = "System.Func`" + (i + 1);
+    var genericArgsForActions = [];
+    var genericArgsForFunctions = [];
+
+    var inputForActions = [];
+    var inputForFunctions = [];
+    for (var j = 0; j < i; j++) {
+      var name = "T" + (j + 1);
+      genericArgsForActions.push(name);
+      genericArgsForFunctions.push(name);
+
+      inputForActions.push(new JSIL.GenericParameter(name, actionName).in());
+      inputForFunctions.push(new JSIL.GenericParameter(name, funcName).in());
+    }
+
+    genericArgsForFunctions.push("TResult");
+
+    JSIL.MakeDelegate(actionName, true, genericArgsForActions, new JSIL.MethodSignature(null, inputForActions));
+    JSIL.MakeDelegate(funcName, true, genericArgsForFunctions, new JSIL.MethodSignature(new JSIL.GenericParameter("TResult", funcName).out(), inputForFunctions));
+  }
+})();
 
 JSIL.MakeDelegate("System.Predicate`1", true, ["in T"], new JSIL.MethodSignature($jsilcore.TypeRef("System.Boolean"), [new JSIL.GenericParameter("T", "System.Predicate`1").in()]));
 
@@ -298,27 +313,6 @@ JSIL.MakeInterface(
       $.Property({}, "AsyncWaitHandle");
       $.Property({}, "AsyncState");
       $.Property({}, "CompletedSynchronously");
-  }, []);
-
-JSIL.MakeInterface(
-  "System.IConvertible", true, [], function ($) {
-      $.Method({}, "GetTypeCode", new JSIL.MethodSignature($jsilcore.TypeRef("System.TypeCode"), [], []));
-      $.Method({}, "ToBoolean", new JSIL.MethodSignature($.Boolean, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToChar", new JSIL.MethodSignature($.Char, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToSByte", new JSIL.MethodSignature($.SByte, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToByte", new JSIL.MethodSignature($.Byte, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToInt16", new JSIL.MethodSignature($.Int16, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToUInt16", new JSIL.MethodSignature($.UInt16, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToInt32", new JSIL.MethodSignature($.Int32, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToUInt32", new JSIL.MethodSignature($.UInt32, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToInt64", new JSIL.MethodSignature($.Int64, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToUInt64", new JSIL.MethodSignature($.UInt64, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToSingle", new JSIL.MethodSignature($.Single, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToDouble", new JSIL.MethodSignature($.Double, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToDecimal", new JSIL.MethodSignature($jsilcore.TypeRef("System.Decimal"), [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToDateTime", new JSIL.MethodSignature($jsilcore.TypeRef("System.DateTime"), [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToString", new JSIL.MethodSignature($.String, [$jsilcore.TypeRef("System.IFormatProvider")], []));
-      $.Method({}, "ToType", new JSIL.MethodSignature($.Object, [$jsilcore.TypeRef("System.Type"), $jsilcore.TypeRef("System.IFormatProvider")], []));
   }, []);
 
 JSIL.MakeInterface(

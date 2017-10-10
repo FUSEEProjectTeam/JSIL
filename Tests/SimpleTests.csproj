@@ -66,15 +66,16 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="SimpleTestCases\ble.un.il" />
     <None Include="SimpleTestCases\Issue538.cs" />
     <None Include="SimpleTestCases\Issue567.cs" />
     <None Include="SimpleTestCasesForStubbedBcl\Issue585.cs" />
-    <None Include="SimpleTestCases\FailsOnMonoWhenStubbed\ConvertEnum.cs" />
+    <None Include="SimpleTestCases\ConvertEnum.cs" />
     <None Include="SimpleTestCases\DelegateBaseType_Issue449.cs" />
     <None Include="SimpleTestCases\DelegateInvoke_Issue500.cs" />
     <None Include="SimpleTestCases\DelegateInvoke_Issue543.cs" />
     <None Include="SimpleTestCases\DelegateReflection_Issue500.cs" />
-    <None Include="SimpleTestCases\DelegateMethod_Issue604.cs" />
+    <None Include="SimpleTestCases\FailsOnMono\DelegateMethod_Issue604.cs" />
     <None Include="ExpressionTestCases\ExpressionsExecution.cs" />
     <None Include="SimpleTestCases\CharArithmetic_Issue610.cs" />
     <None Include="SimpleTestCasesForStubbedBcl\Issue578.cs" />
@@ -135,6 +136,17 @@
     <None Include="SimpleTestCases\ArrayType.cs" />
     <None Include="SimpleTestCases\Issue844.cs" />
     <None Include="SimpleTestCases\FailsOnMono\ArrayEmpty.cs" />
+    <None Include="SimpleTestCases\NumericTypesIConvertible.cs" />
+    <None Include="SimpleTestCases\StringAsIConvertible.cs" />
+    <None Include="SimpleTestCases\ArrayICollectionMethods.cs" />
+    <None Include="SimpleTestCases\ArrayCast.cs" />
+    <None Include="SimpleTestCases\Issue913.cs" />
+    <None Include="SimpleTestCases\BoxNumeric_Issue981.cs" />
+    <None Include="SimpleTestCases\Task_FromResult.cs" />
+    <None Include="SimpleTestCases\NullableUnary_Issue997.cs" />
+    <None Include="SimpleTestCasesForTranslatedBcl\Issue1008_MethodReturnType.cs" />
+    <None Include="SimpleTestCases\GetTypeFromAssembly_Issue1035.cs" />
+    <None Include="SimpleTestCases\AsyncAwaitCancel.cs" />
     <Compile Include="SimpleTests.cs" />
     <None Include="SimpleTestCases\BaseAutoProperties.cs" />
     <None Include="SimpleTestCases\OverloadedVirtualMethods.cs" />
@@ -151,6 +163,7 @@
     <None Include="SimpleTestCases\EnumerableWhere.cs" />
     <None Include="SimpleTestCases\EnumerableRange.cs" />
     <None Include="SimpleTestCases\InvokeInheritedOverloadedMethod.cs" />
+    <None Include="SimpleTestCases\ResolveWrappedNumericType.cs" />
     <None Include="SimpleTestCases\Issue198.fs" />
     <None Include="SimpleTestCases\Issue173.cs" />
     <None Include="SimpleTestCases\StructHoistingInComplexLoop.cs" />
@@ -163,9 +176,10 @@
     <None Include="SimpleTestCases\EnumerableSum.cs" />
     <None Include="SimpleTestCases\Issue213.cs" />
     <None Include="SimpleTestCases\InterfaceBaseType.cs" />
+    <None Include="SimpleTestCases\Issue866.cs" />
     <None Include="SimpleTestCases\ArrayCopyEnum.cs" />
     <None Include="SimpleTestCases\StringGetHashCode.cs" />
-    <None Include="SimpleTestCases\FailsOnMonoWhenStubbed\EnumIConvertible.cs" />
+    <None Include="SimpleTestCases\EnumIConvertible.cs" />
     <None Include="SimpleTestCases\GetEntryAssembly.cs" />
     <None Include="SimpleTestCases\CastEnumTypeToRuntimeType.cs" />
     <None Include="SimpleTestCases\CastIntegerConstantToEnum.cs" />
@@ -178,6 +192,7 @@
     <None Include="SimpleTestCases\CharArithmetic.cs" />
     <None Include="SimpleTestCases\StringFormatCurlies.cs" />
     <None Include="SimpleTestCases\CharIs.cs" />
+    <None Include="SimpleTestCases\ArrayCloneNative_Issue932.cs" />
     <None Include="SimpleTestCases\FieldReturnsInvalidDefaultOnFirstUse.cs" />
     <None Include="SimpleTestCases\Issue239.cs" />
     <None Include="SimpleTestCases\Issue243.cs" />
@@ -186,10 +201,12 @@
     <None Include="SimpleTestCases\Issue247.cs" />
     <None Include="SimpleTestCases\Issue248.cs" />
     <None Include="SimpleTestCases\Issue249.cs" />
+    <None Include="SimpleTestCases\Array2DGetEnumerator_Issue895.cs" />
     <None Include="SimpleTestCases\NullableGetType.cs" />
     <None Include="SimpleTestCases\IEEERemainder.cs" />
     <None Include="SimpleTestCases\StringFormatAlignment.cs" />
     <None Include="SimpleTestCases\EnumerableFirst.cs" />
+    <None Include="SimpleTestCases\EnumerableLast.cs" />
     <None Include="SimpleTestCases\Issue245.cs" />
     <None Include="SimpleTestCases\ListIndexOfEnum.cs" />
     <None Include="SimpleTestCases\ArrayICollection.cs" />
@@ -238,6 +255,7 @@
     <None Include="SimpleTestCases\ArrayLongLength.cs" />
     <None Include="SimpleTestCases\ArrayResize.cs" />
     <None Include="SimpleTestCases\StringContains.cs" />
+    <None Include="SimpleTestCases\StructHashCode.cs" />
     <None Include="SimpleTestCases\StringSubstring.cs" />
     <None Include="SimpleTestCases\GetTypeOfBoolean.cs" />
     <None Include="SimpleTestCases\Int32CompareExchange.cs" />
@@ -248,6 +266,8 @@
     <None Include="SimpleTestCases\ListContains.cs" />
     <None Include="SimpleTestCases\ListIndexOf.cs" />
     <None Include="SimpleTestCases\ListInsert.cs" />
+    <None Include="SimpleTestCases\Delegate_Issue880.cs" />
+    <None Include="SimpleTestCases\Delegate_Issue875.cs" />
     <None Include="SimpleTestCases\StructGenericParameterReferenceEquality.cs" />
     <None Include="SimpleTestCases\ArrayListIndexer.cs" />
     <None Include="SimpleTestCases\ListIList.cs" />
@@ -290,6 +310,7 @@
     <None Include="SimpleTestCases\ParameterNamedThis.cs" />
     <None Include="SimpleTestCases\EnumInPlaceAdd.cs" />
     <None Include="SimpleTestCases\EnumerableStringMethod.cs" />
+    <None Include="SimpleTestCases\EnumerableSkip.cs" />
     <None Include="SimpleTestCases\UnboxBoolean.cs" />
     <None Include="SimpleTestCases\MathIntrinsics.cs" />
     <None Include="SimpleTestCases\StringSplitDefaultSeparators.cs" />
@@ -300,7 +321,7 @@
     <None Include="SimpleTestCases\FloatArrayInitializer.cs" />
     <None Include="SimpleTestCases\StaticConstructorAndFieldAccess.cs" />
     <None Include="SimpleTestCases\StaticConstructorAndFieldAccess2.cs" />
-    <None Include="SimpleTestCases\DelegateRemove.cs" />
+    <None Include="SimpleTestCases\FailsOnMono\DelegateRemove.cs" />
     <None Include="SimpleTestCases\DelegateRemoveAdvanced.cs" />
     <None Include="SimpleTestCases\DecimalCast.cs" />
     <None Include="SimpleTestCases\DecimalCopy.cs" />
@@ -326,6 +347,7 @@
     <None Include="SimpleTestCases\StringFromCharArray.cs" />
     <None Include="SimpleTestCases\EnumerableCast.cs" />
     <None Include="SimpleTestCases\EnumerableToList.cs" />
+    <None Include="SimpleTestCases\EnumerableZip.cs" />
     <None Include="SimpleTestCases\Issue176.cs" />
     <None Include="SimpleTestCases\Issue118_1.fs" />
     <None Include="SimpleTestCases\EnumerableElementAt.cs" />
@@ -449,7 +471,7 @@
     <None Include="SimpleTestCases\Issue504_2.cs" />
     <None Include="SimpleTestCases\Issue504_3.cs" />
     <None Include="SimpleTestCases\HelloWorld.cpp" />
-    <None Include="SimpleTestCases\DelegateRemoveAdvancedWithLambda_Issue541.cs" />
+    <None Include="SimpleTestCases\FailsOnMono\DelegateRemoveAdvancedWithLambda_Issue541.cs" />
     <None Include="SimpleTestCases\LambdaInStateMachine1_Issue544.cs" />
     <None Include="SimpleTestCases\LambdaInStateMachine2_Issue544.cs" />
     <None Include="SimpleTestCases\HelloWorld.il" />
@@ -474,7 +496,7 @@
       <Project>{984CC812-9470-4A13-AFF9-CC44068D666C}</Project>
       <Name>ICSharpCode.Decompiler</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Upstream\ILSpy\Mono.Cecil\Mono.Cecil.csproj">
+    <ProjectReference Include="..\Upstream\ILSpy\cecil\Mono.Cecil.csproj">
       <Project>{D68133BD-1E63-496E-9EDE-4FBDBF77B486}</Project>
       <Name>Mono.Cecil</Name>
     </ProjectReference>
@@ -487,6 +509,7 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="SimpleTestCases\FailsOnMonoWhenStubbed\" />
     <Folder Include="TranslatedBcl\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />

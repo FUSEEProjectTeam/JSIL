@@ -3,7 +3,7 @@
 JSIL.ImplementExternals(
   "System.Double", function ($) {
     $.RawMethod(true, "CheckType", function (value) {
-      return (typeof (value) === "number");
+      return (typeof (value) === "number") || JSIL.Box.IsBoxedOfType(value, $.Type);
     });
 
     $jsilcore.$MakeParseExternals($, $.Double, $jsilcore.$ParseFloat, $jsilcore.$TryParseFloat);
@@ -16,4 +16,4 @@ JSIL.ImplementExternals(
     $.Constant({ Public: true, Static: true }, "NaN", NaN);
   }
 );
-JSIL.MakeNumericType(Number, "System.Double", false, "Float64Array");
+JSIL.MakeNumericType(Number, "System.Double", false, "Float64Array", JSIL.MakeIConvertibleMethods);

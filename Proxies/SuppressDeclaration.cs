@@ -1,6 +1,8 @@
 ﻿namespace JSIL.Proxies
 {
     using System;
+    using System.Collections;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.Reflection;
     using JSIL.Meta;
@@ -25,7 +27,17 @@
             typeof (Assembly),
             typeof (Decimal),
             typeof (IntPtr), typeof (UIntPtr),
-            typeof (NumberFormatInfo)
+            typeof (NumberFormatInfo),
+            typeof (Convert), typeof(DBNull),
+            typeof (IConvertible),
+            typeof (string),
+            typeof (Enum),
+            typeof (IEnumerable<>),
+            typeof (ICollection<>),
+            typeof (IList<>),
+            typeof (IEnumerable),
+            typeof (ICollection),
+            typeof (IList)
         },
         inheritable: false)]
     [JSSuppressTypeDeclaration]
@@ -44,6 +56,13 @@
             "System.Reflection.RuntimePropertyInfo",
             "System.Reflection.RuntimeEventInfo",
             "System.Reflection.RuntimeParameterInfo",
+            "System.Empty",
+
+            "Microsoft.CSharp.RuntimeBinder.Binder",
+            "Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo",
+            "System.Runtime.CompilerServices.CallSite",
+            "System.Runtime.CompilerServices.CallSite`1",
+            "System.Runtime.CompilerServices.CallSiteBinder"
         },
         inheritable: false)]
     [JSSuppressTypeDeclaration]

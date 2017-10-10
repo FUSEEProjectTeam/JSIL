@@ -226,6 +226,34 @@ namespace JSIL.Ast {
         }
     }
 
+    public class JSWrapExpression : JSExpression
+    {
+        public JSWrapExpression(JSExpression originalValue, JSType originalType)
+            : base(originalValue, originalType) {
+        }
+
+        public JSExpression OriginalValue
+        {
+            get
+            {
+                return Values[0];
+            }
+        }
+
+        public JSType OriginalType
+        {
+            get
+            {
+                return (JSType)Values[1];
+            }
+        }
+
+        public override TypeReference GetActualType(TypeSystem typeSystem)
+        {
+            return OriginalValue.GetActualType(typeSystem);
+        }
+    }
+
     // Indicates that the contained expression is a constructed reference to a JS value.
     public class JSReferenceExpression : JSExpression {
         protected JSReferenceExpression (JSExpression referent)
@@ -811,6 +839,35 @@ namespace JSIL.Ast {
         }
     }
 
+    public class JSMethodPointerInfoExpression : JSMethod
+    {
+        public JSMethodPointerInfoExpression(
+            MethodReference reference, MethodInfo method, MethodTypeFactory methodTypes, bool isVirtual,
+            IEnumerable<TypeReference> genericArguments = null)
+            : base(reference, method, methodTypes, genericArguments)
+        {
+            IsVirtual = isVirtual;
+        }
+
+        public override bool HasGlobalStateDependency
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        public bool IsVirtual { get; private set; }
+
+        public override bool IsConstant
+        {
+            get
+            {
+                return true;
+            }
+        }
+    }
+
     public class JSPublicInterfaceOfExpression : JSExpression {
         public JSPublicInterfaceOfExpression (JSExpression inner)
             : base(inner) {
@@ -983,8 +1040,14 @@ namespace JSIL.Ast {
             return base.Equals(o);
         }
 
-        public override TypeReference GetActualType (TypeSystem typeSystem) {
-            return Field.Field.FieldType;
+        public override TypeReference GetActualType(TypeSystem typeSystem)
+        {
+            if (PackedArrayUtil.IsPackedArrayType(Field.Field.FieldType))
+            {
+                return Field.Field.FieldType;
+            }
+
+            return base.GetActualType(typeSystem);
         }
 
         public override string ToString () {
@@ -3253,23 +3316,6 @@ namespace JSIL.Ast {
 
         public override TypeReference GetActualType (TypeSystem typeSystem) {
             return ResultType;
-        }
-    }
-
-    public class JSDeferredExpression : JSExpression {
-        public JSDeferredExpression(JSExpression innerExpression)
-            : base(new [] { innerExpression})
-        {
-        }
-
-        public JSExpression InnerExpression
-        {
-            get { return (JSExpression)Children.First(); }
-        }
-
-        public override TypeReference GetActualType(TypeSystem typeSystem)
-        {
-            return typeSystem.Object;
         }
     }
 

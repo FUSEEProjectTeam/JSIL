@@ -3,7 +3,7 @@
 JSIL.ImplementExternals(
   "System.UInt16", function ($) {
     $.RawMethod(true, "CheckType", function (value) {
-      return (typeof (value) === "number") && (value >= 0);
+      return ((typeof (value) === "number") && (value >= 0)) || JSIL.Box.IsBoxedOfType(value, $.Type);
     });
 
     $jsilcore.$MakeParseExternals($, $.UInt16, $jsilcore.$ParseInt, $jsilcore.$TryParseInt);
@@ -12,4 +12,4 @@ JSIL.ImplementExternals(
     $.Constant({ Public: true, Static: true }, "MinValue", 0);
   }
 );
-JSIL.MakeNumericType(Number, "System.UInt16", true, "Uint16Array");
+JSIL.MakeNumericType(Number, "System.UInt16", true, "Uint16Array", JSIL.MakeIConvertibleMethods);

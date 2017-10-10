@@ -75,6 +75,7 @@
     <None Include="DCETests\DCEMetaAttributes.cs" />
     <None Include="DCETests\DCEMetaAttributesOnProxies.cs" />
     <None Include="DCETests\StripOuterTypes.cs" />
+    <None Include="DCETests\StripInterfaceImplementation.cs" />
     <Compile Include="DeadCodeEliminationTest.cs" />
     <None Include="app.config" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -93,7 +94,7 @@
       <Project>{2dbbcb24-54ad-4c66-b7d6-911811ceb185}</Project>
       <Name>Tests</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Upstream\ILSpy\Mono.Cecil\Mono.Cecil.csproj">
+    <ProjectReference Include="..\Upstream\ILSpy\cecil\Mono.Cecil.csproj">
       <Project>{d68133bd-1e63-496e-9ede-4fbdbf77b486}</Project>
       <Name>Mono.Cecil</Name>
     </ProjectReference>

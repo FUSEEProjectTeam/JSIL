@@ -229,7 +229,7 @@ namespace JSIL.Tests {
         protected IEnumerable<TestCaseData> DictionariesSource () {
             return FilenameTestSource(
                 new[] { 
-                    @"TestCases\Dictionary.cs",
+                    @"TestCases\FailsOnMono\Dictionary.cs",
                     @"TestCases\DictionaryInitializer.cs",
                     @"TestCases\DictionaryEnumerator.cs",
                     @"TestCases\DictionaryKeyValuePairs.cs",
@@ -391,6 +391,19 @@ namespace JSIL.Tests {
                     @"TestCases\ContinueInsideSwitch.cs",
                     @"SpecialTestCases\AsyncStateMachineSwitchGoto.cs",
                     @"SpecialTestCases\ElaborateSwitchControlFlow.cs"
+                }, null, defaultProvider
+            );
+        }
+
+        [Test]
+        [FailsOnMono]
+        public void SwitchStatementsRoslyn()
+        {
+            var defaultProvider = MakeDefaultProvider();
+
+            RunComparisonTests(
+                new[] {
+                    @"SpecialTestCases\RoslynBigStringSwitchWithStaticArray.cs",
                 }, null, defaultProvider
             );
         }

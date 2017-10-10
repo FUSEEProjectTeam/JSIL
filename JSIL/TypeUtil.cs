@@ -7,10 +7,11 @@ using ICSharpCode.Decompiler;
 using JSIL.Ast;
 using JSIL.Internal;
 using Mono.Cecil;
-using Mono.CSharp;
 using TypeDefinition = Mono.Cecil.TypeDefinition;
 
 namespace JSIL {
+    using JSIL.Transforms;
+
     public static class TypeUtil {
         public static TypeReference GetElementType (TypeReference type, bool throwOnFail) {
             type = StripModifiers(type);
@@ -159,6 +160,40 @@ namespace JSIL {
                     return true;
                 default:
                     return IsNativeInteger(type);
+            }
+        }
+
+        public static TypeReference GetUnsignedType(TypeReference type, TypeSystem typeSystem)
+        {
+            type = DereferenceType(type);
+
+            switch (type.MetadataType)
+            {
+                case MetadataType.UIntPtr:
+                case MetadataType.IntPtr:
+                    return typeSystem.UIntPtr;
+
+                case MetadataType.SByte:
+                case MetadataType.Byte:
+                    return typeSystem.Byte;
+
+                case MetadataType.Int16:
+                case MetadataType.UInt16:
+                    return typeSystem.UInt16;
+
+                case MetadataType.Int32:
+                case MetadataType.UInt32:
+                    return typeSystem.UInt32;
+
+                case MetadataType.Int64:
+                case MetadataType.UInt64:
+                    return typeSystem.UInt64;
+
+                case MetadataType.Char:
+                    return typeSystem.Char;
+
+                default:
+                    return type;
             }
         }
 
@@ -567,7 +602,7 @@ namespace JSIL {
 
         private static string GetActualScope (TypeReference tr) {
             var result = tr.Scope.Name;
-            if (tr.GetType() == typeof (TypeReference))
+            if (tr.GetType() == typeof (TypeReference) && tr.Module != null)
             {
                 var definition = tr.Resolve();
                 if (definition != null)
@@ -642,6 +677,14 @@ namespace JSIL {
             if ((targetGp != null) || (sourceGp != null)) {
                 if ((targetGp == null) || (sourceGp == null))
                     return false;
+
+                var isTargetGpArg = SignatureCacher.IsTypeArgument(targetGp);
+                var isSourceGpArg = SignatureCacher.IsTypeArgument(targetGp);
+
+                if (isSourceGpArg || isTargetGpArg)
+                {
+                    return isSourceGpArg && isTargetGpArg && targetGp.Name == sourceGp.Name;
+                }
 
                 TypeReference temp;
 
@@ -863,8 +906,10 @@ namespace JSIL {
             var result = new List<JSExpression>();
             for (var i = 0; i < at.Dimensions.Count; i++) {
                 var dim = at.Dimensions[i];
-                if (dim.IsSized)
+                if (dim.IsSized) {
+                    result.Add(JSLiteral.New(dim.LowerBound.Value));
                     result.Add(JSLiteral.New(dim.UpperBound.Value));
+                }
                 else
                     return null;
             }

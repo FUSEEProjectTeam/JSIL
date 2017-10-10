@@ -3,10 +3,10 @@
 JSIL.ImplementExternals(
   "System.Boolean", function ($) {
     $.RawMethod(true, "CheckType", function (value) {
-      return (value === false) || (value === true);
+      return (value === false) || (value === true) || JSIL.Box.IsBoxedOfType(value, $.Type);
     });
 
     $jsilcore.$MakeParseExternals($, $.Boolean, $jsilcore.$ParseBoolean, $jsilcore.$TryParseBoolean);
   }
 );
-JSIL.MakeNumericType(Boolean, "System.Boolean", true);
+JSIL.MakeNumericType(Boolean, "System.Boolean", true, null, JSIL.MakeIConvertibleMethods);

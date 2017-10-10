@@ -97,6 +97,26 @@ namespace JSIL.Tests {
         }
 
         [Test]
+        [FailsOnMono]
+        public void RoslynBigStringSwitchWithStaticArray()
+        {
+            var generatedJs = GetJavascript(
+                @"SpecialTestCases\RoslynBigStringSwitchWithStaticArray.cs"
+            );
+
+            try
+            {
+                Assert.IsFalse(generatedJs.Contains("StaticArrayInit"));
+            }
+            catch
+            {
+                Console.WriteLine(generatedJs);
+
+                throw;
+            }
+        }
+
+        [Test]
         public void StringConcat () {
             var generatedJs = GetJavascript(
                 @"SpecialTestCases\StringConcat.cs",
@@ -811,30 +831,6 @@ namespace JSIL.Tests {
                 );
                 Assert.IsTrue(
                     generatedJs.Contains("\"out V\""), "V name missing variance indicator"
-                );
-            } catch {
-                Console.WriteLine(generatedJs);
-
-                throw;
-            }
-        }
-
-        [Test]
-        public void CallSiteVariablesEliminated () {
-            var output = "a\r\n6";
-            var generatedJs = GetJavascript(
-                @"TestCases\DynamicReturnTypes.cs",
-                output, () => {
-                    var cfg = MakeConfiguration();
-                    cfg.CodeGenerator.CacheTypeExpressions = true;
-                    return cfg;
-                }
-            );
-
-            try {
-                Assert.IsFalse(
-                    generatedJs.Contains(".CallSite"),
-                    "A CallSite was not fully eliminated"
                 );
             } catch {
                 Console.WriteLine(generatedJs);

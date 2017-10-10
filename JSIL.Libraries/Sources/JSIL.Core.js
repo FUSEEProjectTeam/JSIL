@@ -389,6 +389,7 @@ JSIL.$GetSpecialType = function (name) {
   runtimeType.__IsEnum__ = false;
   runtimeType.__ThisType__ = runtimeType;
   runtimeType.__TypeInitialized__ = false;
+  runtimeType.__TypeInitializing__ = false;
   runtimeType.__LockCount__ = 0;
   JSIL.SetValueProperty(runtimeType, "__FullName__", "System.RuntimeType");
   JSIL.SetValueProperty(runtimeType, "__ShortName__", "RuntimeType");
@@ -403,6 +404,7 @@ JSIL.$GetSpecialType = function (name) {
   runtimeAssembly.__ThisType__ = runtimeType;
   runtimeAssembly.__ThisTypeId__ = runtimeType.__TypeId__;
   runtimeAssembly.__TypeInitialized__ = false;
+  runtimeAssembly.__TypeInitializing__ = false;
   runtimeAssembly.__LockCount__ = 0;
   JSIL.SetValueProperty(runtimeAssembly, "__FullName__", "System.Reflection.RuntimeAssembly");
   JSIL.SetValueProperty(runtimeAssembly, "__ShortName__", "RuntimeAssembly");
@@ -489,20 +491,21 @@ JSIL.GetAssembly = function (assemblyName, requireExisting) {
   var isSystemCore = (shortName === "System.Core") || (assemblyName.indexOf("System.Core,") === 0);
   var isSystemXml = (shortName === "System.Xml") || (assemblyName.indexOf("System.Xml,") === 0);
   var isJsilMeta = (shortName === "JSIL.Meta") || (assemblyName.indexOf("JSIL.Meta,") === 0);
+  var isMicrosoftCSharp = (shortName === "Microsoft.CSharp") || (assemblyName.indexOf("Microsoft.CSharp,") === 0);
 
   // Create a new private global namespace for the new assembly
   var template = {};
 
   // Ensure that BCL private namespaces inherit from the JSIL namespace.
-  if (isMscorlib || isSystem || isSystemCore || isSystemXml || isJsilMeta)
-    template = $jsilcore;
+  if (isMscorlib || isSystem || isSystemCore || isSystemXml || isJsilMeta || isMicrosoftCSharp)
+    template = $jsilcore || {};
 
   var result = JSIL.CreateSingletonObject(template);
 
   var assemblyId;
 
   // Terrible hack to assign the mscorlib and JSIL.Core types the same IDs
-  if (isMscorlib) {
+  if (isMscorlib && $jsilcore) {
     assemblyId = $jsilcore.__AssemblyId__;
   } else {
     assemblyId = ++JSIL.$NextAssemblyId;
@@ -541,7 +544,7 @@ JSIL.GetAssembly = function (assemblyName, requireExisting) {
 };
 
 
-var $jsilcore = JSIL.DeclareAssembly("JSIL.Core");
+var $jsilcore = JSIL.DeclareAssembly("mscorlib");
 
 (function () {
   JSIL.$SpecialTypePrototypes["System.RuntimeType"].__ThisTypeId__ = 
@@ -568,6 +571,26 @@ JSIL.Memoize = function Memoize (value) {
   };
 };
 
+JSIL.MemoizeTypes = function MemoizeTypes(storage, valueProvider, args) {
+  var argTypes = "";
+  for (var i = 0, l = args.length; i < l; i++) {
+    var type = args[i].__TypeId__;
+    if (typeof (type) === "undefined") {
+      throw new Error("Type with __TypeId__ expected");
+    }
+    argTypes += (type + ":");
+  }
+  var cache = storage.cache;
+  if (typeof (cache) === "undefined") {
+    storage.cache = {};
+  }
+  var result = storage.cache[argTypes];
+  if (typeof (result) === "undefined") {
+    result = valueProvider();
+    storage.cache[argTypes] = result;
+  }
+  return result;
+};
 
 JSIL.PreInitMembrane = function (target, initializer) {
   if (typeof (initializer) !== "function")
@@ -875,6 +898,7 @@ JSIL.Name.prototype.toString = function () {
 JSIL.SplitRegex = /[\.]/g;
 JSIL.UnderscoreRegex = /[\.\/\+]/g;
 JSIL.AngleGroupRegex = /\<([^<>]*)\>/g;
+JSIL.DoubleBracketGroupRegex = /\[\[([^<>]*)\]\]/g;
 JSIL.EscapedNameCharacterRegex = /[\.\/\+\`\~\:\<\>\(\)\{\}\[\]\@\-\=\?\!\*\ \&\,\|\']/g;
 
 JSIL.EscapeName = function (name) {
@@ -993,6 +1017,8 @@ JSIL.SplitName = function (name) {
 
   var escapedName = name.replace(JSIL.AngleGroupRegex, function (match, group1) {
     return "$l" + group1.replace(JSIL.UnderscoreRegex, "_") + "$g";
+  }).replace(JSIL.DoubleBracketGroupRegex, function (match, group1) {
+    return "$lb" + group1.replace(JSIL.UnderscoreRegex, "_") + "$gb";
   });
 
   return escapedName.split(JSIL.SplitRegex);
@@ -1162,7 +1188,7 @@ JSIL.DefineTypeName = function (name, getter, isPublic) {
       if (existing !== undefined){
         if (existing != $jsilcore) {
           JSIL.WarningFormat(
-            "Private type '{0}' with external implementation defined more than twice: '{1}'" + 
+            "Private type '{0}' with external implementation defined more than twice: '{1}'", 
             [$private.toString(), existing.toString()]
           );
         }
@@ -1503,8 +1529,25 @@ JSIL.Initialize = function () {
   JSIL.InitializeType($jsilcore.System.RuntimeType);
   JSIL.InitializeType($jsilcore.System.Reflection.RuntimeAssembly);
   JSIL.InitializeType($jsilcore.System.Object);
-  $jsilcore.System.Type.__Type__.__TypeInitialized__ = false;
-  JSIL.InitializeType($jsilcore.System.Type);
+
+  // As we use raw JS types, we should execute static ctor manually.
+  JSIL.RunStaticConstructors($jsilcore.System.Boolean, $jsilcore.System.Boolean.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.Char, $jsilcore.System.Char.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.Byte, $jsilcore.System.Byte.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.SByte, $jsilcore.System.SByte.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.Int16, $jsilcore.System.Int16.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.UInt16, $jsilcore.System.UInt16.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.Int32, $jsilcore.System.Int32.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.UInt32, $jsilcore.System.UInt32.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.Single, $jsilcore.System.Single.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.Double, $jsilcore.System.Double.__Type__);
+  JSIL.RunStaticConstructors($jsilcore.System.String, $jsilcore.System.String.__Type__);
+};
+
+JSIL.ArrayDimensionParameter = function (size) {
+  var genericParameter = new JSIL.GenericParameter("Dimensions", "System.Array");
+  JSIL.SetValueProperty(genericParameter, "__Dimensions__", size);
+  return genericParameter;
 };
 
 JSIL.GenericParameter = function (name, context) {
@@ -1634,6 +1677,14 @@ JSIL.PositionalGenericParameter.prototype.get_Name = function () {
 
 JSIL.PositionalGenericParameter.prototype.__IsClosed__ = false;
 
+JSIL.PositionalGenericParameter.prototype.get = function (context) {
+  if (!context) {
+    JSIL.RuntimeError("No context provided when resolving generic parameter '" + this.__FullName__ + "'");
+    return JSIL.AnyType;
+  }
+
+  return context["!!" + this.index];
+};
 
 JSIL.NamespaceRef = function (context, namespace) {
   if (arguments.length === 1) {
@@ -2043,7 +2094,7 @@ JSIL.MakeProto = function (baseType, typeObject, typeName, isReferenceType, asse
   return prototype;
 };
 
-JSIL.MakeNumericType = function (baseType, typeName, isIntegral, typedArrayName) {
+JSIL.MakeNumericType = function (baseType, typeName, isIntegral, typedArrayName, declareAdditionalMembers) {
   var typeArgs = {
     BaseType: baseType,
     Name: typeName,
@@ -2125,8 +2176,27 @@ JSIL.MakeNumericType = function (baseType, typeName, isIntegral, typedArrayName)
         return $formatSignature().CallStatic($jsilcore.JSIL.System.NumberFormatter, "NumberToString", null, format, self, formatProvider).toString();
       }
     );
+    
+    JSIL.MakeBoxMethod($);
+    
+    if (declareAdditionalMembers)
+      declareAdditionalMembers($);
   });
 };
+
+JSIL.MakeBoxMethod = function($) {
+  var $boxedConstructor = function () {
+    var ctor = JSIL.Box.Of($.publicInterface);
+    JSIL.Box.$addTypeMethods(ctor, $.publicInterface);
+    return ($boxedConstructor = JSIL.Memoize(ctor))();
+  };
+
+  $.RawMethod(true, "$Box",
+    function (value) {
+      return new ($boxedConstructor())(value);
+    }
+  );
+}
 
 JSIL.MakeIndirectProperty = function (target, key, source) {
   var hasValue = false, state;
@@ -2170,7 +2240,7 @@ JSIL.$ResolveGenericTypeReferenceInternal = function (obj, context) {
   if ((typeof (obj) !== "object") || (obj === null))
     return null;
 
-  if (Object.getPrototypeOf(obj) === JSIL.GenericParameter.prototype) {
+  if (Object.getPrototypeOf(obj) === JSIL.GenericParameter.prototype || Object.getPrototypeOf(obj) === JSIL.PositionalGenericParameter.prototype) {
     var result = obj.get(context);
 
     if (
@@ -2216,7 +2286,7 @@ JSIL.$ResolveGenericTypeReferenceInternal = function (obj, context) {
     if (obj.__IsArray__) {
       var elementType = JSIL.$ResolveGenericTypeReferenceInternal(obj.__ElementType__, context);
       if (elementType !== null)
-        return System.Array.Of(elementType);
+        return System.Array.Of(elementType, obj.__Dimensions__ ? JSIL.ArrayDimensionParameter(obj.__Dimensions__) : null).__Type__;
 
       return null;
     }
@@ -2981,6 +3051,7 @@ JSIL.FixupInterfaces = function (publicInterface, typeObject) {
 
   var typeMembers = JSIL.GetMembersInternal(typeObject, $jsilcore.BindingFlags.$Flags("Instance", "NonPublic", "Public"));
   var resolveContext = typeObject.__IsStatic__ ? publicInterface : publicInterface.prototype;
+  var methodGroups = {};
 
   __interfaces__:
   for (var i = 0, l = interfaces.length; i < l; i++) {
@@ -3131,6 +3202,12 @@ JSIL.FixupInterfaces = function (publicInterface, typeObject) {
               proto, signatureQualifiedName, 
               JSIL.MakeInterfaceMemberGetter(proto, sourceQualifiedName)
             );
+
+            var methodGroupRecord = methodGroups[qualifiedName];
+            if (methodGroupRecord === undefined) {
+              methodGroups[qualifiedName] = methodGroupRecord = {};
+            }
+            methodGroupRecord[signatureQualifiedName] = implementation._data.signature;
           }
 
           break;
@@ -3234,6 +3311,12 @@ JSIL.FixupInterfaces = function (publicInterface, typeObject) {
       // This is desirable because an explicit override (via .Overrides) should always trump automatic
       //  overrides via name/signature matching.
       JSIL.SetLazyValueProperty(proto, key, JSIL.MakeInterfaceMemberGetter(proto, member._descriptor.EscapedName));
+
+      var methodGroupRecord = methodGroups[interfaceQualifiedName];
+      if (methodGroupRecord === undefined) {
+        methodGroups[interfaceQualifiedName] = methodGroupRecord = {};
+      }
+      methodGroupRecord[key] = member._data.signature;
     }
   }
 
@@ -3247,8 +3330,38 @@ JSIL.FixupInterfaces = function (publicInterface, typeObject) {
       JSIL.Host.warning("Type '" + typeObject.__FullName__ + "' has ambiguous implementation of interface member(s): " + ambiguousMembers.join(", "));
   }
 
+  for (var interfaceQualifiedName in methodGroups) {
+    var methodGroup = methodGroups[interfaceQualifiedName];
+    var entries = []
+    for (var signatureQualifiedName in methodGroup) {
+      entries.push(methodGroup[signatureQualifiedName]);
+    }
+    
+    JSIL.SetLazyValueProperty(proto, interfaceQualifiedName,
+      JSIL.$MakeMethodGroupGetter(typeObject, proto, false, [], interfaceQualifiedName, interfaceQualifiedName, entries
+    ));
+  }
+
   typeObject.__IsFixingUpInterfaces__ = false;
 };
+
+JSIL.$MakeMethodGroupGetter = function (typeObject, target, isStatic, renamedMethods, methodName, methodEscapedName, entries) {
+  var key = null;
+
+  return function GetMethodGroup() {
+    if (key === null) {
+      key = JSIL.$MakeMethodGroup(
+        typeObject, isStatic, target, renamedMethods, methodName, methodEscapedName, entries
+      );
+    }
+
+    var methodGroupTarget = target[key];
+    if (methodGroupTarget.__IsMembrane__)
+      JSIL.DefinePreInitMethodAlias(target, methodEscapedName, methodGroupTarget);
+
+    return methodGroupTarget;
+  };
+}
 
 $jsilcore.BuildingFieldList = new Array();
 
@@ -3296,24 +3409,22 @@ JSIL.GetObjectKeys = function (obj) {
 };
 
 JSIL.CreateNamedFunction = function (name, argumentNames, body, closure) {
-  var result = null, keys = null, closureArgumentList = null;
+  var result = null, keys = null, closureArgumentList = null, closureArgumenNames = null;
 
   if (closure) {
-    keys = JSIL.GetObjectKeys(closure);
-    closureArgumentList = new Array(keys.length);
-
-    for (var i = 0, l = keys.length; i < l; i++)
-      closureArgumentList[i] = closure[keys[i]];
+    closureArgumenNames = JSIL.GetObjectKeys(closure);
+    closureArgumentList = new Array(closureArgumenNames.length);
+    for (var i = 0, l = closureArgumenNames.length; i < l; i++)
+      closureArgumentList[i] = closure[closureArgumenNames[i]];
   }
 
-  var constructor = JSIL.CreateRebindableNamedFunction(name, argumentNames, body, closure);
+  var constructor = JSIL.CreateRebindableNamedFunction(name, argumentNames, body, closureArgumenNames);
   result = constructor.apply(null, closureArgumentList);
 
   return result;
 };
 
-JSIL.CreateRebindableNamedFunction = function (name, argumentNames, body, closure) {
-  var uriRe = /[\<\>\+\/\\\.]/g;
+JSIL.CreateRebindableNamedFunction = function (name, argumentNames, body, closureArgNames) {
   var strictPrefix = "\"use strict\";\r\n";
   var uriPrefix = "", escapedFunctionIdentifier = "";
 
@@ -3339,8 +3450,8 @@ JSIL.CreateRebindableNamedFunction = function (name, argumentNames, body, closur
 
   var result = null, keys = null;
 
-  if (closure) {
-    keys = JSIL.GetObjectKeys(closure).concat([rawFunctionText]);
+  if (closureArgNames) {
+    keys = closureArgNames.concat([rawFunctionText]);
   } else {
     keys = [rawFunctionText];
   }
@@ -3490,47 +3601,6 @@ JSIL.CopyMembers = function (source, target) {
     copier = thisType.__MemberCopier__ = JSIL.$MakeMemberCopier(thisType, thisType.__PublicInterface__);
 
   copier(source, target);
-};
-
-JSIL.$MakeComparerCore = function (typeObject, context, body) {
-  var fields = JSIL.GetFieldList(typeObject);
-
-  if (context.prototype.__CompareMembers__) {
-    context.comparer = context.prototype.__CompareMembers__;
-    body.push("  return context.comparer(lhs, rhs);");
-  } else {
-    for (var i = 0; i < fields.length; i++) {
-      var field = fields[i];
-      var fieldType = field.type;
-
-      if (fieldType.__IsNumeric__ || fieldType.__IsEnum__) {
-        body.push("  if (" + JSIL.FormatMemberAccess("lhs", field.name) + " !== " + JSIL.FormatMemberAccess("rhs", field.name) + ")");
-      } else {
-        body.push("  if (!JSIL.ObjectEquals(" + JSIL.FormatMemberAccess("lhs", field.name) + ", " + JSIL.FormatMemberAccess("rhs", field.name) + "))");
-      }
-
-      body.push("    return false;");
-    }
-
-    body.push("  return true;");
-  }
-}
-
-JSIL.$MakeStructComparer = function (typeObject, publicInterface) {
-  var prototype = publicInterface.prototype;
-  var context = {
-    prototype: prototype
-  };
-
-  var body = [];
-
-  JSIL.$MakeComparerCore(typeObject, context, body);
-
-  return JSIL.CreateNamedFunction(
-    typeObject.__FullName__ + ".StructComparer",
-    ["lhs", "rhs"], 
-    body.join("\r\n")
-  );
 };
 
 JSIL.$MakeCopierCore = function (typeObject, context, body, resultVar) {
@@ -4435,37 +4505,17 @@ JSIL.$BuildMethodGroups = function (typeObject, publicInterface, forceLazyMethod
       continue;
     }
 
-    // We defer construction of the actual method group dispatcher(s) until the first
-    //  time the method is used. This reduces the up-front cost of BuildMethodGroups
-    //  and reduces the amount of memory used for methods that are never invoked via
-    //  dynamic dispatch.
-    var makeMethodGroupGetter = function (
-      target, isStatic, renamedMethods, methodName, methodEscapedName, entries
-    ) {
-      var key = null;
-
-      return function GetMethodGroup () {
-        if (key === null) {
-          key = JSIL.$MakeMethodGroup(
-            typeObject, isStatic, target, renamedMethods, methodName, methodEscapedName, entries
-          );
-        }
-
-        var methodGroupTarget = target[key];
-        if (methodGroupTarget.__IsMembrane__)
-          JSIL.DefinePreInitMethodAlias(target, methodEscapedName, methodGroupTarget);
-        
-        return methodGroupTarget;
-      };
-    };
-
     if (trace) {
       console.log(typeObject.__FullName__ + "[" + methodEscapedName + "] = ", getter);
     }
 
-    if (active) {    
-      var getter = makeMethodGroupGetter(
-        target, isStatic, renamedMethods, methodName, methodEscapedName, entries
+    if (active) {
+      // We defer construction of the actual method group dispatcher(s) until the first
+      //  time the method is used. This reduces the up-front cost of BuildMethodGroups
+      //  and reduces the amount of memory used for methods that are never invoked via
+      //  dynamic dispatch.
+      var getter = JSIL.$MakeMethodGroupGetter(
+        typeObject, target, isStatic, renamedMethods, methodName, methodEscapedName, entries
       );
 
       if (lazyMethodGroups) {
@@ -4520,6 +4570,8 @@ JSIL.BuildTypeList = function (type, publicInterface) {
 };
 
 $jsilcore.cctorKeys = ["_cctor", "_cctor2", "_cctor3", "_cctor4", "_cctor5"];
+JSIL.ScheduledInitialization = [];
+JSIL.IsInsideInitializeType = false;
 
 JSIL.InitializeType = function (type) {
   var classObject = type, typeObject = type;
@@ -4533,80 +4585,118 @@ JSIL.InitializeType = function (type) {
   else
     return;
 
-  if (typeObject.__TypeInitialized__ || false)
+  if (typeObject.__TypeInitialized__ || typeObject.__TypeInitializing__ || false)
     return;
 
-  // Not entirely correct, but prevents recursive type initialization
-  typeObject.__TypeInitialized__ = true;
+  var shouldDoScheduledInitialization = !JSIL.IsInsideInitializeType;
 
-  if (typeObject.__IsClosed__) {
-    var forceLazyMethodGroups = false;
-
-    // We need to ensure that method groups for BCL classes are always lazy
-    //  because otherwise, initializing the method groups may rely on the classes themselves
-    if (typeObject.__FullName__.indexOf("System.") === 0)
-      forceLazyMethodGroups = true;
-
-    if (typeObject.IsInterface !== true) {
-      JSIL.$CreateMethodMembranes(typeObject, classObject);
-      JSIL.$BuildMethodGroups(typeObject, classObject, forceLazyMethodGroups);
-    }
-
-    JSIL.InitializeFields(classObject, typeObject);
-    JSIL.InstantiateProperties(classObject, typeObject);
-
-    if (typeObject.IsInterface !== true) {
-      JSIL.QueueTypeInitializer(typeObject, function () {
-        JSIL.FixupInterfaces(classObject, typeObject);
-      });
-      JSIL.RebindRawMethods(classObject, typeObject);
-    }
-
-    if (!typeObject.__IsStatic__) {
-      JSIL.BuildTypeList(typeObject, classObject);
-    }
-
-    if (
-      classObject.prototype &&
-      (typeof (classObject.prototype) === "object") && 
-      // HACK: We need to use a special implementation for System.Object.MemberwiseClone,
-      //  since when called explicitly it acts 'virtually' (conforms to the instance type)
-      //  (issue #146)
-      (typeObject.__FullName__ !== "System.Object")
-    ) {
-      JSIL.SetLazyValueProperty(
-        classObject.prototype, "MemberwiseClone", function () {
-          return JSIL.$MakeMemberwiseCloner(typeObject, classObject);
+  try {
+    var baseType = typeObject.__BaseType__;
+    while (baseType || false) {
+      if (baseType.__TypeInitializing__) {
+        if (JSIL.ScheduledInitialization.indexOf(typeObject) == -1) {
+          JSIL.ScheduledInitialization.push(typeObject);
         }
-      );
+        return;
+      }
+      baseType = baseType.__BaseType__;
     }
 
-    if (classObject.__PreInitMembrane__)
-      classObject.__PreInitMembrane__.maybeInit();
-    if (classObject.prototype && classObject.prototype.__PreInitMembrane__)
-      classObject.prototype.__PreInitMembrane__.maybeInit();
-  } else {
-    // console.log("Type '" + typeObject.__FullName__ + "' is open so not initializing");
-  }
+    JSIL.IsInsideInitializeType = true;
+    typeObject.__TypeInitializing__ = true;
 
-  // Any closed forms of the type, if it's an open type, should be initialized too.
-  if (typeof (typeObject.__OfCache__) !== "undefined") {
-    var oc = typeObject.__OfCache__;
-    for (var k in oc) {
-      if (!oc.hasOwnProperty(k))
-        continue;
+    if (typeObject.__IsClosed__) {
+      var forceLazyMethodGroups = false;
 
-      JSIL.InitializeType(oc[k]);
+      // We need to ensure that method groups for BCL classes are always lazy
+      //  because otherwise, initializing the method groups may rely on the classes themselves
+      if (typeObject.__FullName__.indexOf("System.") === 0)
+        forceLazyMethodGroups = true;
+
+      if (typeObject.IsInterface !== true) {
+        JSIL.$CreateMethodMembranes(typeObject, classObject);
+        JSIL.$BuildMethodGroups(typeObject, classObject, forceLazyMethodGroups);
+      }
+
+      JSIL.InitializeFields(classObject, typeObject);
+      JSIL.InstantiateProperties(classObject, typeObject);
+
+      if (typeObject.IsInterface !== true) {
+        JSIL.QueueTypeInitializer(typeObject, function() {
+          JSIL.FixupInterfaces(classObject, typeObject);
+        });
+        JSIL.RebindRawMethods(classObject, typeObject);
+      }
+
+      if (!typeObject.__IsStatic__) {
+        JSIL.BuildTypeList(typeObject, classObject);
+      }
+
+      if (
+        classObject.prototype &&
+          (typeof (classObject.prototype) === "object") &&
+          // HACK: We need to use a special implementation for System.Object.MemberwiseClone,
+          //  since when called explicitly it acts 'virtually' (conforms to the instance type)
+          //  (issue #146)
+          (typeObject.__FullName__ !== "System.Object")
+      ) {
+        JSIL.SetLazyValueProperty(
+          classObject.prototype, "MemberwiseClone", function() {
+            return JSIL.$MakeMemberwiseCloner(typeObject, classObject);
+          }
+        );
+      }
+    } else {
+      // console.log("Type '" + typeObject.__FullName__ + "' is open so not initializing");
     }
-  }
 
-  if (
-    (typeof (type.__BaseType__) !== "undefined") &&
-    (type.__BaseType__ !== null)
-  ) {
-    JSIL.InitializeType(type.__BaseType__);
+    typeObject.__TypeInitializing__ = false;
+    typeObject.__TypeInitialized__ = true;
+
+    // Any closed forms of the type, if it's an open type, should be initialized too.
+    if (typeof (typeObject.__OfCache__) !== "undefined") {
+      var oc = typeObject.__OfCache__;
+      for (var k in oc) {
+        if (!oc.hasOwnProperty(k))
+          continue;
+
+        JSIL.InitializeType(oc[k]);
+      }
+    }
+
+    if ((typeof (type.__BaseType__) !== "undefined") && (type.__BaseType__ !== null)) {
+      JSIL.InitializeType(type.__BaseType__);
+    }
+
+    if (shouldDoScheduledInitialization) {
+      var startElement = null;
+
+      var next;
+      while ((next = JSIL.ScheduledInitialization.shift())) {
+        if (startElement === next) {
+          throw new Error("Something broken. Endless type intialization cycle detected.");
+        }
+
+        if (startElement !== null) {
+          startElement = next;
+        }
+
+        JSIL.InitializeType(next);
+
+        if (JSIL.ScheduledInitialization[JSIL.ScheduledInitialization.length - 1] !== next) {
+          startElement = null;
+        }
+      }
+      JSIL.IsInsideInitializeType = false;
+    }
+  } finally {
+    if (shouldDoScheduledInitialization) {
+      JSIL.IsInsideInitializeType = false;
+    }
   }
 };
+
+
 
 JSIL.$InvokeStaticConstructor = function (staticConstructor, typeObject, classObject) {
   if (JSIL.ThrowOnStaticCctorError) {
@@ -4638,7 +4728,7 @@ JSIL.RunStaticConstructors = function (classObject, typeObject) {
   // Run any queued initializers for the type
   var ti = typeObject.__Initializers__ || $jsilcore.ArrayNull;
   while (ti.length > 0) {
-    var initializer = ti.unshift();
+    var initializer = ti.shift();
     if (typeof (initializer) === "function")
       initializer(classObject);
   };
@@ -4869,6 +4959,7 @@ JSIL.MakeStaticClass = function (fullName, isPublic, genericArguments, initializ
     typeObject.__RenamedMethods__ = {};
     typeObject.__RawMethods__ = [];
     typeObject.__TypeInitialized__ = false;
+    typeObject.__TypeInitializing__ = false;
 
     JSIL.FillTypeObjectGenericArguments(typeObject, genericArguments);
 
@@ -4937,7 +5028,6 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
   var typeId = typeObject.__TypeId__;
   var assignableFromTypes = typeObject.__AssignableFromTypes__ || {};
 
-  typeObject.__CastSpecialType__ = specialType;
   var typeName = JSIL.GetTypeName(typeObject);
 
   var throwCastError = function (value) {
@@ -4956,16 +5046,7 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
   var isInterface = typeObject.IsInterface || false;
 
   // HACK: Handle casting arrays to IEnumerable by creating an overlay.
-  if (isIEnumerable || isICollection || isIList) {
-    checkMethod = function Check_ArrayInterface (value) {
-      // FIXME: IEnumerable<int>.Is(float[]) will return true.
-      if (JSIL.IsArray(value))
-        return true;
-
-      // Fallback to default check logic
-      return false;
-    };
-  } else if (isPointer) {
+  if (isPointer) {
     var expectedElementTypeId = typeObject.__GenericArgumentValues__[0].__TypeId__;
 
     checkMethod = function Check_IsPointer (value) {
@@ -4983,17 +5064,18 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
     isFunction = JSIL.CreateNamedFunction(
       typeName + ".$Is", 
       ["expression", "bypassCustomCheckMethod"],
-      "if (!bypassCustomCheckMethod && checkMethod(expression))\r\n" +
+      "if (!bypassCustomCheckMethod && checkMethod(expression,typePublicInterface))\r\n" +
       "  return true;\r\n" +
       "if (expression) {\r\n" +
-      "  var expressionTypeId = expression.__ThisTypeId__;\r\n" +
+      "  var expressionTypeId = expression.__IsBox__ ? expression.TValue.__TypeId__ : expression.__ThisTypeId__;\r\n" +
       "  return (expressionTypeId === typeId) || (!!assignableFromTypes[expressionTypeId]);\r\n" +
       "} else\r\n" +
       "  return false;\r\n",
       {
         typeId: typeId,
         assignableFromTypes: assignableFromTypes, 
-        checkMethod: checkMethod
+        checkMethod: checkMethod,
+        typePublicInterface: publicInterface
       }
     );
   } else {
@@ -5001,7 +5083,7 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       typeName + ".$Is", 
       ["expression"],
       "if (expression) {\r\n" +
-      "  var expressionTypeId = expression.__ThisTypeId__;\r\n" +
+      "  var expressionTypeId = expression.__IsBox__ ? expression.TValue.__TypeId__ : expression.__ThisTypeId__;\r\n" +
       "  return (expressionTypeId === typeId) || (!!assignableFromTypes[expressionTypeId]);\r\n" +
       "} else\r\n" +
       "  return false;\r\n",
@@ -5016,10 +5098,10 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
     asFunction = JSIL.CreateNamedFunction(
       typeName + ".$As", 
       ["expression"],
-      "if (checkMethod(expression))\r\n" +
+      "if (checkMethod(expression,typePublicInterface))\r\n" +
       "  return expression;\r\n" +
       "else if (expression) {\r\n" +
-      "  var expressionTypeId = expression.__ThisTypeId__;\r\n" +
+      "  var expressionTypeId = expression.__IsBox__ ? expression.TValue.__TypeId__ : expression.__ThisTypeId__;\r\n" +
       "  if ((expressionTypeId === typeId) || (!!assignableFromTypes[expressionTypeId]))\r\n" +
       "    return expression;\r\n" +
       "}\r\n\r\n" +
@@ -5027,7 +5109,8 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       {
         typeId: typeId,
         assignableFromTypes: assignableFromTypes, 
-        checkMethod: checkMethod
+        checkMethod: checkMethod,
+        typePublicInterface: publicInterface
       }
     );
   } else {
@@ -5035,7 +5118,7 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       typeName + ".$As", 
       ["expression"],
       "if (expression) {\r\n" +
-      "  var expressionTypeId = expression.__ThisTypeId__;\r\n" +
+      "  var expressionTypeId = expression.__IsBox__ ? expression.TValue.__TypeId__ : expression.__ThisTypeId__;\r\n" +
       "  if ((expressionTypeId === typeId) || (!!assignableFromTypes[expressionTypeId]))\r\n" +
       "    return expression;\r\n" +
       "}\r\n\r\n" +
@@ -5047,7 +5130,7 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
     );
   }
 
-  castFunction = function Cast (expression) {
+  castFunction = function Cast(expression) {
     if (isFunction(expression))
       return expression;
     else if (expression === null)
@@ -5056,7 +5139,34 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       throwCastError(expression);
   };
 
-  var integerCastFunction = function Cast_Integer (expression) {
+  var nullableCastFunction = function Cast_Nullable(expression) {
+    return JSIL.Nullable_Cast(expression, publicInterface.T);
+  };
+
+  var booleanCastFunction = function Cast_Boolean(expression) {
+    if (expression.__IsBox__) {
+      if (publicInterface.__Type__ === expression.TValue) {
+        expression = expression.valueOf();
+      } else {
+        throwCastError(expression);
+      }
+    }
+
+    if (typeof (expression) === "boolean") {
+      return expression;
+    } else
+      throwCastError(expression);
+  };
+
+  var integerCastFunction = function Cast_Integer(expression) {
+    if (expression.__IsBox__) {
+      if (publicInterface.__Type__ === expression.TValue) {
+        expression = expression.valueOf();
+      } else {
+        throwCastError(expression);
+      }
+    }
+
     if (typeof (expression) === "number") {
       var max = publicInterface.MaxValue | 0;
       var result = (expression | 0) & max;
@@ -5075,7 +5185,15 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       throwCastError(expression);
   };
 
-  var numericCastFunction = function Cast_Number (expression) {
+  var numericCastFunction = function Cast_Number(expression) {
+    if (expression.__IsBox__) {
+      if (publicInterface.__Type__ === expression.TValue) {
+        expression = expression.valueOf();
+      } else {
+        throwCastError(expression);
+      }
+    }
+    
     if (typeof (expression) === "number") {
       return expression;
     } else if (expression === false) {
@@ -5086,7 +5204,7 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       throwCastError(expression);
   };
 
-  var int64CastFunction = function Cast_Int64_Impl (expression) {
+  var int64CastFunction = function Cast_Int64_Impl(expression) {
     if (expression === false)
       return System.Int64.Zero;
     else if (expression === true)
@@ -5147,42 +5265,6 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
 
       break;
 
-    case "array":
-      // Allow casting array interface overlays back to appropriate array types
-      var _isFunction = isFunction;
-      isFunction = function Is_Array (expression) {
-        return _isFunction(expression) || (
-          expression &&
-          expression.$overlayToArray && 
-          expression.$overlayToArray(typeObject)
-        );
-      };
-
-      var _asFunction = asFunction;
-      asFunction = function As_Array (expression) {
-        var result = _asFunction(expression);
-
-        if ((result === null) && (expression && expression.$overlayToArray))
-          result = expression.$overlayToArray(typeObject);
-
-        return result;
-      };
-
-      castFunction = function CastArray (expression) {
-        if (_isFunction(expression))
-          return expression;
-
-        if (expression && expression.$overlayToArray) {
-          var overlayArray = expression.$overlayToArray(typeObject);
-          if (overlayArray)
-            return overlayArray;
-        }
-
-        throwCastError(expression);
-      };
-
-      break;
-
     case "char":
       customCheckOnly = true;
       asFunction = throwInvalidAsError;
@@ -5193,6 +5275,13 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
       customCheckOnly = true;    
       asFunction = throwInvalidAsError;
       castFunction = integerCastFunction;
+
+      break;
+
+    case "bool":
+      customCheckOnly = true;
+      asFunction = throwCastError;
+      castFunction = booleanCastFunction;
 
       break;
 
@@ -5211,6 +5300,9 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
         return int64CastFunction(expression);
       };
       break;
+    case "nullable":
+      castFunction = nullableCastFunction;
+      break;
   }
 
   if (checkMethod && customCheckOnly) {
@@ -5220,35 +5312,6 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
         return expression;
       else
         return null;
-    };
-  }
-
-  if (isIEnumerable || isICollection || isIList) {
-    var innerAsFunction = asFunction;
-    var innerCastFunction = castFunction;
-
-    var createOverlay = function Overlay_ArrayInterface (value) {
-      if (JSIL.IsArray(value)) {
-        var tElement = $jsilcore.System.Object.__Type__;
-        if (typeObject.__GenericArguments__.length === 1)
-          tElement = typeObject.__GenericArgumentValues__[0];
-
-        var tOverlay = JSIL.ArrayInterfaceOverlay.Of(tElement);
-
-        return new tOverlay(value);
-      }
-
-      return value;
-    };
-
-    asFunction = function As_ArrayInterface (value) {
-      // FIXME: I think the order of these function calls should be reversed.
-      return createOverlay(innerAsFunction(value));
-    };
-
-    castFunction = function Cast_ArrayInterface (value) {
-      // FIXME: I think the order of these function calls should be reversed.
-      return createOverlay(innerCastFunction(value));
     };
   }
 
@@ -5265,8 +5328,18 @@ JSIL.$ActuallyMakeCastMethods = function (publicInterface, typeObject, specialTy
   }
 };
 
+JSIL.$TypeAssignableFromExpression = function (expression, typePublicInterface) {
+  return expression !== null && JSIL.$TypeAssignableFromTypeId(JSIL.GetType(expression).__TypeId__, typePublicInterface);
+};
+
+JSIL.$TypeAssignableFromTypeId = function(expressionTypeId, typePublicInterface) {
+  return (expressionTypeId === typePublicInterface.__TypeId__) || (!!typePublicInterface.__Type__.__AssignableFromTypes__[expressionTypeId]);
+};
+
 JSIL.MakeCastMethods = function (publicInterface, typeObject, specialType) {
   var state = null;
+
+  typeObject.__CastSpecialType__ = specialType;
 
   var doLazyInitialize = function () {
     if (state === null)
@@ -5310,7 +5383,8 @@ JSIL.MakeTypeAlias = function (sourceAssembly, fullName) {
     }
   );
 
-  if (sourceAssembly.__AssemblyId__ === context.__AssemblyId__) {
+  // BCL assemblies are created with $jsilcore in prototype  but different __AssemblyId__
+  if (sourceAssembly.__AssemblyId__ === context.__AssemblyId__ || sourceAssembly.isPrototypeOf(context)) {
     // HACK: This is a recursive type alias, so don't define the name alias.
     // We still want to leave the typesByName logic above intact since the two aliases have separate assembly
     //  objects, and thus separate typesByName lists, despite sharing an assembly id.
@@ -5471,7 +5545,7 @@ JSIL.MakeType = function (typeArgs, initializer) {
   if (typeof (isPublic) === "undefined")
     JSIL.Host.abort(new Error("Must specify isPublic"));
 
-  var assembly = $private;
+  var assembly = typeArgs.Assembly || $private;
   var localName = JSIL.GetLocalName(fullName);
   var memberBuilder = new JSIL.MemberBuilder($private);
   var attributes = memberBuilder.attributes;
@@ -5515,7 +5589,7 @@ JSIL.MakeType = function (typeArgs, initializer) {
 
     typeObject.__MaxConstructorArguments__ = maxConstructorArguments;
 
-    var typeId = JSIL.AssignTypeId(assembly, fullName);
+    var typeId = typeArgs.$TypeId || JSIL.AssignTypeId(assembly, fullName);
     JSIL.SetTypeId(typeObject, staticClassObject, typeId);
 
     // FIXME: This should probably be a per-assembly dictionary to work right in the case of name collisions.
@@ -5553,6 +5627,7 @@ JSIL.MakeType = function (typeArgs, initializer) {
     typeObject.__FieldInitializer__ = $jsilcore.FunctionNotInitialized;
     typeObject.__MemberCopier__ = $jsilcore.FunctionNotInitialized;
     typeObject.__Comparer__ = $jsilcore.FunctionNotInitialized;
+    typeObject.__GetHashCode__ = $jsilcore.FunctionNotInitialized;
     typeObject.__Marshaller__ = $jsilcore.FunctionNotInitialized;
     typeObject.__Unmarshaller__ = $jsilcore.FunctionNotInitialized;
     typeObject.__UnmarshalConstructor__ = $jsilcore.FunctionNotInitialized;
@@ -5560,6 +5635,7 @@ JSIL.MakeType = function (typeArgs, initializer) {
     typeObject.__Properties__ = [];
     typeObject.__Initializers__ = [];
     typeObject.__TypeInitialized__ = false;
+    typeObject.__TypeInitializing__ = false;
     typeObject.__IsNativeType__ = false;
     typeObject.__AssignableTypes__ = null;
     typeObject.__AssignableFromTypes__ = {};
@@ -5636,6 +5712,10 @@ JSIL.MakeType = function (typeArgs, initializer) {
       };
     } else {
       typeObject._IsAssignableFrom = function (typeOfValue) {
+        if (!typeOfValue.__TypeInitialized__ && true) {
+          JSIL.InitializeType(typeOfValue);
+        }
+
         return typeOfValue.__AssignableTypes__[this.__TypeId__] === true;
       };
     }
@@ -5651,7 +5731,8 @@ JSIL.MakeType = function (typeArgs, initializer) {
 
     JSIL.ApplyExternals(staticClassObject, typeObject, fullName);
 
-    JSIL.MakeCastMethods(staticClassObject, typeObject, null);
+    var isNullable = fullName === "System.Nullable`1";
+    JSIL.MakeCastMethods(staticClassObject, typeObject, isNullable ? "nullable" : null);
 
     delete $jsilcore.InFlightObjectConstructions[fullName];
 
@@ -5714,7 +5795,7 @@ JSIL.MakeStruct = function (baseType, fullName, isPublic, genericArguments, init
   return JSIL.MakeType(typeArgs, initializer);
 };
 
-JSIL.MakeInterface = function (fullName, isPublic, genericArguments, initializer, interfaces) {
+JSIL.MakeInterface = function (fullName, isPublic, genericArguments, initializer, interfaces, checkMethod, interfaceMemberFallbackMethod) {
   var assembly = $private;
   var localName = JSIL.GetLocalName(fullName);
 
@@ -5748,9 +5829,10 @@ JSIL.MakeInterface = function (fullName, isPublic, genericArguments, initializer
     typeObject.__Members__ = [];
     typeObject.__RenamedMethods__ = {};
     JSIL.SetValueProperty(typeObject, "__ShortName__", localName);
-    typeObject.__Context__ = $private;
+    typeObject.__Context__ = assembly;
     JSIL.SetValueProperty(typeObject, "__FullName__", fullName);
     typeObject.__TypeInitialized__ = false;
+    typeObject.__TypeInitializing__ = false;
 
     if (interfaces && interfaces.length) {
       // FIXME: This seems wrong.
@@ -5765,7 +5847,7 @@ JSIL.MakeInterface = function (fullName, isPublic, genericArguments, initializer
     typeObject.__Attributes__ = attributes;
     typeObject.__Interfaces__ = interfaces || [];
 
-    var interfaceBuilder = new JSIL.InterfaceBuilder(assembly, typeObject, publicInterface, "interface");
+    var interfaceBuilder = new JSIL.InterfaceBuilder(assembly, typeObject, publicInterface, "interface", interfaceMemberFallbackMethod);
     initializer(interfaceBuilder);
 
     if (typeObject.__GenericArguments__.length > 0) {
@@ -5779,8 +5861,16 @@ JSIL.MakeInterface = function (fullName, isPublic, genericArguments, initializer
     }
 
     typeObject._IsAssignableFrom = function (typeOfValue) {
+      if (!typeOfValue.__TypeInitialized__ && true) {
+        JSIL.InitializeType(typeOfValue);
+      }
+
       return typeOfValue.__AssignableTypes__[this.__TypeId__] === true;
     };
+
+    if (checkMethod || false) {
+      JSIL.SetValueProperty(publicInterface, "CheckType", checkMethod);
+    }
 
     JSIL.MakeCastMethods(publicInterface, typeObject, "interface");
 
@@ -5890,11 +5980,13 @@ JSIL.MakeEnum = function (_descriptor, _members) {
     JSIL.SetValueProperty(typeObject, "__IsReferenceType__", false);
     typeObject.__IsClosed__ = true;
     typeObject.__TypeInitialized__ = false;
+    typeObject.__TypeInitializing__ = false;
+    typeObject.__Initializers__ = [];
 
     if (descriptor.BaseType) {
-      typeObject.__StorageType__ = JSIL.ResolveTypeReference(descriptor.BaseType)[1];
+      JSIL.SetLazyValueProperty(typeObject, "__StorageType__", function () { return JSIL.ResolveTypeReference(descriptor.BaseType)[1]; });
     } else {
-      typeObject.__StorageType__ = $jsilcore.System.Int32.__Type__;
+      JSIL.SetLazyValueProperty(typeObject, "__StorageType__", function () { return $jsilcore.System.Int32.__Type__; });
     }
 
     var typeId = JSIL.AssignTypeId(context, descriptor.FullName);
@@ -6164,15 +6256,21 @@ JSIL.GetType = function (value) {
 
   if ((type === "object") || (type === "function")) {
     var tt;
-    if (tt = value.__ThisType__)
+    if (value.__IsBox__)
+      return value.TValue;
+    else if (tt = value.__ThisType__)
       return tt;
     else if (value.GetType)
       return value.GetType();
     else if (JSIL.IsTypedArray(value))
       return JSIL.$GetTypeForTypedArray(value);
-    else if (JSIL.IsArray(value))
-      return System.Array.Of(System.Object).__Type__;
-    else
+    else if (JSIL.IsArray(value)) {
+      if (value.__ElementType__ || false) {
+        return System.Array.Of(value.__ElementType__).__Type__;
+      } else {
+        return System.Array.Of(System.Object).__Type__;        
+      }
+    } else
       return System.Object.__Type__;
 
   } else if (type === "string") {
@@ -6433,10 +6531,11 @@ JSIL.MemberBuilder.prototype.Parameter = function (index, name, attributes) {
 };
 
 
-JSIL.InterfaceBuilder = function (context, typeObject, publicInterface, builderMode) {
+JSIL.InterfaceBuilder = function (context, typeObject, publicInterface, builderMode, interfaceMemberFallbackMethod) {
   this.context = context;
   this.typeObject = typeObject;
   this.publicInterface = publicInterface;
+  this.interfaceMemberFallbackMethod = interfaceMemberFallbackMethod || null;
 
   if (Object.getPrototypeOf(typeObject) === Object.prototype) {
     // HACK: Handle the fact that ImplementExternals doesn't pass us a real type object.
@@ -7108,12 +7207,14 @@ JSIL.InterfaceBuilder.prototype.Method = function (_descriptor, methodName, sign
   var memberBuilder = new JSIL.MemberBuilder(this.context);
 
   if (this.typeObject.IsInterface) {
-    var methodObject = new JSIL.InterfaceMethod(this.typeObject, descriptor.EscapedName, signature, memberBuilder.parameterInfo);
+    var methodObject = new JSIL.InterfaceMethod(this.typeObject, descriptor.EscapedName, signature, memberBuilder.parameterInfo, this.interfaceMemberFallbackMethod);
 
     JSIL.SetValueProperty(descriptor.Target, mangledName, methodObject);
 
-    if (!descriptor.Target[descriptor.EscapedName])
-      JSIL.SetValueProperty(descriptor.Target, descriptor.EscapedName, methodObject);
+    if (descriptor.Target[descriptor.EscapedName])
+      methodObject = new JSIL.InterfaceMethod(this.typeObject, descriptor.EscapedName, null, memberBuilder.parameterInfo, this.interfaceMemberFallbackMethod);
+    
+    JSIL.SetValueProperty(descriptor.Target, descriptor.EscapedName, methodObject);
   } else {
     if (typeof (fn) !== "function")
       JSIL.RuntimeError("Method expected a function as 4th argument when defining '" + methodName + "'");
@@ -7692,9 +7793,39 @@ JSIL.MethodSignature.prototype.$MakeInlineCacheBody = function (callMethodName, 
     result.push(indentation);
   };
 
+  var emitMethodKey = function (indentation) {
+    // Look up the actual method key, update the IC...
+    body.push(indentation + "var methodKey = " + getMethodKeyLookup() + ";");
+  }
+
+  // When an IC is enabled, if a cache miss occurs we update the IC before finally
+  //  doing a typical invocation.
+  var emitCacheMissInvocation = function (indentation) {
+    // Interface ICs are keyed off the type ID of the this-reference.
+    // Non-interface ICs are keyed off method name.
+    var typeIdExpression =
+      isInterfaceCall
+        ? "typeId"
+        : "null";
+
+    // Interface ICs live on the InterfaceMethod's signature.
+    var cacheMissMethod =
+      isInterfaceCall
+        ? "this.signature.$InlineCacheMiss(this, '"
+        : "this.$InlineCacheMiss(this, '";
+
+    // Update the IC...
+    body.push(
+      indentation + cacheMissMethod +
+      callMethodName + "', " +
+      nameIdentifier + ", " +
+      typeIdExpression + ", methodKey" +
+      ", " + (fallbackMethod ? "fallbackMethod" : "null") + ");"
+    );
+  };
 
   // This is the path used for simple invocations - no IC, etc.
-  var emitDefaultInvocation = function (indentation, methodKeyToken) {
+  var emitDefaultInvocation = function (indentation, methodKeyToken, shouldEmitCacheMissInvocation) {
     // For every invocation type other than Call, the this-reference will
     //  automatically bind thanks to JS call semantics.
     var methodName = (callMethodName === "Call")
@@ -7702,10 +7833,16 @@ JSIL.MethodSignature.prototype.$MakeInlineCacheBody = function (callMethodName, 
       : methodLookupArg + "[" + methodKeyToken + "]";
 
     if (fallbackMethod) {
-      body.push(indentation + "  var methodReference = " + methodName + ";");    
-      body.push(indentation + "  if (!methodReference) {");
-      body.push(indentation + "    methodReference = fallbackMethod(this.typeObject, this, thisReference)");
-      body.push(indentation + "  }");
+      body.push(indentation + "var methodReference = " + methodName + ";");    
+      body.push(indentation + "if (!methodReference) {");
+      body.push(indentation + "  methodReference = fallbackMethod(this.typeObject, this, thisReference);");
+      if (shouldEmitCacheMissInvocation) {
+        body.push(indentation + "} else {");
+        emitCacheMissInvocation(indentation + "  ");
+        body.push(indentation + "}");
+      } else {
+        body.push(indentation + "}");
+      }
       body.push("");
 
       JSIL.MethodSignature.$EmitInvocation(
@@ -7715,6 +7852,9 @@ JSIL.MethodSignature.prototype.$MakeInlineCacheBody = function (callMethodName, 
         false, indentation + "  "
       );
     } else {
+      if (shouldEmitCacheMissInvocation) {
+        emitCacheMissInvocation(indentation);
+      }
       emitMissingMethodCheck(body, methodName, methodKeyToken, "");
 
       JSIL.MethodSignature.$EmitInvocation(
@@ -7743,41 +7883,17 @@ JSIL.MethodSignature.prototype.$MakeInlineCacheBody = function (callMethodName, 
     }
   };
 
-
-  // When an IC is enabled, if a cache miss occurs we update the IC before finally
-  //  doing a typical invocation.
-  var emitCacheMissInvocation = function (indentation) {
-    // Interface ICs are keyed off the type ID of the this-reference.
-    // Non-interface ICs are keyed off method name.
-    var typeIdExpression = 
-      isInterfaceCall
-        ? "typeId"
-        : "null";
-
-    // Interface ICs live on the InterfaceMethod's signature.
-    var cacheMissMethod = 
-      isInterfaceCall
-        ? "this.signature.$InlineCacheMiss(this, '"
-        : "this.$InlineCacheMiss(this, '";
-
-    // Look up the actual method key, update the IC...
-    body.push(indentation + "var methodKey = " + getMethodKeyLookup() + ";");
-    body.push(
-      indentation + cacheMissMethod +  
-      callMethodName + "', " +
-      nameIdentifier + ", " + 
-      typeIdExpression + ", methodKey);"
-    );
-
-    // Then finally invoke.
-    emitDefaultInvocation(indentation, "methodKey");
-  };
+  var emitCacheMissAndDefaultInvocation = function (indentation, shouldEmitCacheMissInvocation) {
+    if (shouldEmitCacheMissInvocation) {
+      emitMethodKey(indentation);
+      emitDefaultInvocation(indentation, "methodKey", true);
+    } else {
+      emitDefaultInvocation("", getMethodKeyLookup(), false);
+    }
+  }
 
   if (this.useInlineCache) {
     // Crazy inline cache nonsense time!
-
-    if (fallbackMethod)
-      JSIL.RuntimeError("Inline caching does not support fallback methods");
 
     // Look up the type ID of the this-reference for interface calls. We'll be using it a lot.
     if (isInterfaceCall) {
@@ -7867,15 +7983,15 @@ JSIL.MethodSignature.prototype.$MakeInlineCacheBody = function (callMethodName, 
 
     if (this.inlineCacheEntries.length >= 1) {
       body.push("  default: ");
-      emitCacheMissInvocation("    ");
+      emitCacheMissAndDefaultInvocation("    ", true);
       body.push("}");
       body.push("");
     } else {
-      emitCacheMissInvocation("");
+      emitCacheMissAndDefaultInvocation("", true);
     }
 
   } else {
-    emitDefaultInvocation("", getMethodKeyLookup());
+    emitCacheMissAndDefaultInvocation("", false);
   }
 
   var joinedBody = body.join("\r\n");
@@ -7920,11 +8036,6 @@ JSIL.MethodSignature.prototype.$MakeCallMethod = function (callMethodName, known
       return cachedResult;
   }
 
-  // Doing an IC with a fallback method in play is totally not worth the trouble.
-  // Fallback methods are an infrequently used hack anyway.
-  if (fallbackMethod)
-    this.useInlineCache = false;
-
   var result = this.$MakeInlineCacheBody(callMethodName, knownMethodKey, fallbackMethod);
 
   if (JSIL.MethodSignature.$CallMethodCache) {
@@ -7934,7 +8045,7 @@ JSIL.MethodSignature.prototype.$MakeCallMethod = function (callMethodName, known
   return result;
 };
 
-JSIL.MethodSignature.prototype.$InlineCacheMiss = function (target, callMethodName, name, typeId, methodKey) {
+JSIL.MethodSignature.prototype.$InlineCacheMiss = function (target, callMethodName, name, typeId, methodKey, fallbackMethod) {
   if (!this.useInlineCache)
     return;
 
@@ -7951,7 +8062,7 @@ JSIL.MethodSignature.prototype.$InlineCacheMiss = function (target, callMethodNa
     this.inlineCacheEntries = null;
     this.useInlineCache = false;
 
-    this.$RecompileInlineCache(target, callMethodName);
+    this.$RecompileInlineCache(target, callMethodName, fallbackMethod);
   } else {
     for (var i = 0; i < numEntries; i++) {
       var entry = this.inlineCacheEntries[i];
@@ -7967,13 +8078,13 @@ JSIL.MethodSignature.prototype.$InlineCacheMiss = function (target, callMethodNa
     // If we had a cache miss and the target doesn't have an entry, add it and recompile.
     var newEntry = new JSIL.MethodSignatureInlineCacheEntry(name, typeId, methodKey);
     this.inlineCacheEntries.push(newEntry);
-    this.$RecompileInlineCache(target, callMethodName);
+    this.$RecompileInlineCache(target, callMethodName, fallbackMethod);
   }
 };
 
-JSIL.MethodSignature.prototype.$RecompileInlineCache = function (target, callMethodName) {
+JSIL.MethodSignature.prototype.$RecompileInlineCache = function (target, callMethodName, fallbackMethod) {
   var cacheKey = callMethodName + "$" + this.GetUnnamedKey(true);  
-  var newFunction = this.$MakeInlineCacheBody(callMethodName, target.methodKey || null);
+  var newFunction = this.$MakeInlineCacheBody(callMethodName, target.methodKey || null, fallbackMethod);
 
   if (JSIL.MethodSignature.$CallMethodCache) {
     JSIL.MethodSignature.$CallMethodCache[cacheKey] = newFunction;
@@ -8224,27 +8335,20 @@ JSIL.ResolvedMethodSignature = function (methodSignature, key, returnType, argum
   JSIL.ValidateArgumentTypes(argumentTypes);
 };
 
-JSIL.ResolvedMethodSignature.prototype.ResolvePositionalGenericParameter = function (genericParameterValues, parameter) {
-  if (
-    (typeof (parameter) === "object") && 
-    (parameter !== null) &&
-    (Object.getPrototypeOf(parameter) === JSIL.PositionalGenericParameter.prototype)
-  ) {
-    return genericParameterValues[parameter.index] || null;
-  } else {
-    return parameter;
-  }
-};
-
 JSIL.ResolvedMethodSignature.prototype.ResolvePositionalGenericParameters = function (genericParameterValues) {
-  var returnType = this.ResolvePositionalGenericParameter(genericParameterValues, this.returnType);
+  var context = {};
+  for (var k = 0, m = genericParameterValues.length; k < m; k++) {
+    context["!!" + k] = genericParameterValues[k];
+  }
+
+  var returnType = JSIL.ResolveGenericTypeReference(this.returnType, context);
   var argumentTypes = [];
 
   var resolvedAnyArguments = false;
 
   for (var i = 0, l = this.argumentTypes.length; i < l; i++) {
     var argumentType = this.argumentTypes[i];
-    argumentType = this.ResolvePositionalGenericParameter(genericParameterValues, argumentType);
+    argumentType = JSIL.ResolveGenericTypeReference(argumentType, context);
     argumentTypes.push(argumentType);
 
     if (argumentType !== this.argumentTypes[i]);
@@ -8267,7 +8371,7 @@ JSIL.ResolvedMethodSignature.prototype.toString = function () {
 };
 
 
-JSIL.InterfaceMethod = function (typeObject, methodName, signature, parameterInfo) {
+JSIL.InterfaceMethod = function (typeObject, methodName, signature, parameterInfo, interfaceMemberFallbackMethod) {
   this.typeObject = typeObject;
   this.variantGenericArguments = JSIL.$FindVariantGenericArguments(typeObject);
   this.methodName = methodName;
@@ -8283,7 +8387,9 @@ JSIL.InterfaceMethod = function (typeObject, methodName, signature, parameterInf
   this.parameterInfo = parameterInfo;
   this.qualifiedName = JSIL.$GetSignaturePrefixForType(typeObject) + this.methodName;
   this.variantInvocationCandidateCache = JSIL.CreateDictionaryObject(null);
-  this.fallbackMethod = JSIL.$PickFallbackMethodForInterfaceMethod(typeObject, methodName, signature);
+  if (interfaceMemberFallbackMethod !== null) {
+    this.fallbackMethod = interfaceMemberFallbackMethod;
+  }
 
   JSIL.SetLazyValueProperty(this, "methodKey", function () {
     return this.signature.GetNamedKey(this.qualifiedName, true);
@@ -8293,7 +8399,7 @@ JSIL.InterfaceMethod = function (typeObject, methodName, signature, parameterInf
 JSIL.SetLazyValueProperty(JSIL.InterfaceMethod.prototype, "Call", function () { return this.$MakeCallMethod(); }, true);
 
 JSIL.InterfaceMethod.prototype.Rebind = function (newTypeObject, newSignature) {
-  var result = new JSIL.InterfaceMethod(newTypeObject, this.methodName, newSignature, this.parameterInfo);
+  var result = new JSIL.InterfaceMethod(newTypeObject, this.methodName, this.signature != null ? newSignature : null, this.parameterInfo);
   result.fallbackMethod = this.fallbackMethod;
   return result;
 };
@@ -8311,11 +8417,15 @@ JSIL.InterfaceMethod.prototype.GetVariantInvocationCandidates = function (thisRe
   var cache = this.variantInvocationCandidateCache;
   var typeId = thisReference.__ThisTypeId__;
 
+  if (!(typeId || false)) {
+    return null;
+  }
+
   var result = cache[typeId];
 
   if (typeof (result) === "undefined") {
     cache[typeId] = result = JSIL.$GenerateVariantInvocationCandidates(
-      this.typeObject, this.signature, this.qualifiedName, this.variantGenericArguments, JSIL.GetType(thisReference)
+      this.typeObject, this.signature, this.signature != null ? this.qualifiedName : this.methodName, this.variantGenericArguments, JSIL.GetType(thisReference)
     );
   }
 
@@ -8378,7 +8488,20 @@ JSIL.InterfaceMethod.prototype.LookupVariantMethodKey = function (thisReference)
 };
 
 JSIL.InterfaceMethod.prototype.$MakeCallMethod = function () {
-  if (this.typeObject.__IsClosed__ && this.signature.IsClosed) {
+  if (this.signature == null) {
+    var imethod = this;
+    return function (thisObject, genericArgs) {
+      var key = this.variantGenericArguments.length > 0 ? imethod.LookupVariantMethodKey(thisObject) : this.qualifiedName;
+      var target = thisObject[key];
+      var targetFunctionArgs = Array.prototype.slice.call(arguments, 2);
+      if (genericArgs) {
+        resolvedTarget = target.apply(thisObject, genericArgs);
+        return resolvedTarget(targetFunctionArgs);
+      } else {
+        return target.apply(thisObject, targetFunctionArgs);
+      }
+    }
+  } else if (this.typeObject.__IsClosed__ && this.signature.IsClosed) {
     var callType = 
       (this.variantGenericArguments.length > 0)
         ? "CallVariantInterface"
@@ -9021,9 +9144,9 @@ JSIL.GetReflectionCache = function (typeObject) {
 // Scans the specified type (and its base types, as necessary) to retrieve all the MemberInfo instances appropriate for a request.
 // If any BindingFlags are specified in flags they are applied as filters to limit the number of members returned.
 // If memberType is specified and is the short name of a MemberInfo subclass like 'FieldInfo', only members of that type are returned.
-JSIL.GetMembersInternal = function (typeObject, flags, memberType, name, hideMembers) {
+JSIL.GetMembersInternal = function (typeObject, flags, memberType, name, hideMembers, resultArrayType) {
   hideMembers |= false;
-  var result = [];
+  var result = resultArrayType ? JSIL.Array.New(resultArrayType.__ElementType__, 0) : [];
   var bindingFlags = $jsilcore.BindingFlags;
 
   var allMethodsIncludingSpecialNames = (memberType === "$AllMethods");
@@ -9172,21 +9295,6 @@ JSIL.ApplyCollectionInitializer = function (target, values) {
     target.Add.apply(target, values[i]);
 };
 
-JSIL.StructEquals = function Struct_Equals (lhs, rhs) {
-  if (lhs === rhs)
-    return true;
-
-  if ((rhs === null) || (rhs === undefined))
-    return false;
-
-  var thisType = lhs.__ThisType__;
-  var comparer = thisType.__Comparer__;
-  if (comparer === $jsilcore.FunctionNotInitialized)
-    comparer = thisType.__Comparer__ = JSIL.$MakeStructComparer(thisType, thisType.__PublicInterface__);
-
-  return comparer(lhs, rhs);
-};
-
 JSIL.DefaultValueInternal = function (typeObject, typePublicInterface) {
   var fullName = typeObject.__FullName__;
   if (fullName === "System.Char") {
@@ -9234,8 +9342,8 @@ JSIL.DefaultValue = function (type) {
 };
 
 JSIL.Array.GetElements = function (array) {
-  if (Object.getPrototypeOf(array) === JSIL.MultidimensionalArray.prototype)
-    return array._items;
+  if (array.__IsArray__ && array.__Dimensions__)
+    return array.Items;
   else if (JSIL.IsArray(array))
     return array;
   else
@@ -9347,6 +9455,8 @@ JSIL.Array.New = function Array_New (elementType, sizeOrInitializer) {
     result = new Array(size);
   }
 
+  JSIL.SetValueProperty(result, "__ElementType__", elementTypeObject, false, true);
+
   if (initializerIsArray) {
     // If non-numeric, assume array initializer
     for (var i = 0; i < sizeOrInitializer.length; i++)
@@ -9358,14 +9468,19 @@ JSIL.Array.New = function Array_New (elementType, sizeOrInitializer) {
   return result;
 };
 
-JSIL.Array.Clone = function (array) {
-  if (JSIL.IsTypedArray(array)) {
-    var ctor = Object.getPrototypeOf(array).constructor;
-    return new ctor(array);
-  } else if (Object.getPrototypeOf(array) === JSIL.MultidimensionalArray.prototype) {
-    return new JSIL.MultidimensionalArray(array._type, array._dimensions, array._items);
-  } else if (JSIL.IsArray(array)) {
-    return Array.prototype.slice.call(array);
+JSIL.Array.Clone = function(array) {
+  var type = JSIL.GetType(array);
+  if (type.__IsArray__) {
+    if (!JSIL.IsArray(array)) {
+      var bounds = [];
+      for (var i = 0; i < array.LowerBounds.length; i++) {
+        bounds.push(array.LowerBounds[i]);
+        bounds.push(array.DimensionLength[i]);
+      }
+      return JSIL.MultidimensionalArray.New(type.__ElementType__, bounds, array.Items);
+    } else {
+      return JSIL.Array.New(type.__ElementType__, array);
+    }
   } else {
     JSIL.RuntimeError("Invalid array");
   }
@@ -9426,6 +9541,7 @@ JSIL.MakeDelegate = function (fullName, isPublic, genericArguments, methodSignat
     typeObject.__IsValueType__ = false;
     typeObject.__IsByRef__ = false;
     typeObject.__TypeInitialized__ = false;
+    typeObject.__TypeInitializing__ = false;
 
     JSIL.FillTypeObjectGenericArguments(typeObject, genericArguments);
 
@@ -9459,7 +9575,7 @@ JSIL.MakeDelegate = function (fullName, isPublic, genericArguments, methodSignat
 
     JSIL.SetValueProperty(staticClassObject, "CheckType", $jsilcore.CheckDelegateType.bind(typeObject));
 
-    JSIL.SetValueProperty(staticClassObject, "New", function (object, method, methodInfoResolver) {
+    JSIL.SetValueProperty(staticClassObject, "New", function (object, method, methodPointerInfo) {
       if ((typeof (method) === "undefined") &&
           (typeof (object) === "function")
       ) {
@@ -9472,16 +9588,22 @@ JSIL.MakeDelegate = function (fullName, isPublic, genericArguments, methodSignat
           JSIL.RuntimeError("Single delegate argument passed to Delegate.New, but types don't match");
       }
 
-      if (typeof (method) !== "function") {
-        JSIL.RuntimeError("Non-function passed to Delegate.New");
+      var resultDelegate;
+      if (method === null && methodPointerInfo instanceof JSIL.MethodPointerInfo) {
+        method = methodPointerInfo.createInvocationFunction(object);
+        resultDelegate = method;
+      } else {
+        if (typeof (method) !== "function") {
+          JSIL.RuntimeError("Non-function passed to Delegate.New");
+        }
+
+        if (method.__IsMembrane__)
+          method = method.__Unwrap__();
+
+        resultDelegate = function Delegate_Invoke() {
+          return method.apply(object, arguments);
+        };
       }
-
-      if (method.__IsMembrane__)
-        method = method.__Unwrap__();
-
-      var resultDelegate = function Delegate_Invoke () {
-        return method.apply(object, arguments);
-      };
 
       JSIL.SetValueProperty(resultDelegate, "__ThisType__", this.__Type__);
       JSIL.SetValueProperty(resultDelegate, "toString", toStringImpl);
@@ -9490,7 +9612,7 @@ JSIL.MakeDelegate = function (fullName, isPublic, genericArguments, methodSignat
       JSIL.SetValueProperty(resultDelegate, "__isMulticast__", false);
       JSIL.SetValueProperty(resultDelegate, "Invoke", method);
       JSIL.SetValueProperty(resultDelegate, "get_Method", this.__Type__.__PublicInterface__.prototype.get_Method);
-      JSIL.SetValueProperty(resultDelegate, "__methodInfoResolver__", methodInfoResolver);
+      JSIL.SetValueProperty(resultDelegate, "__methodPointerInfo__", methodPointerInfo);
 
       // FIXME: Move these off the object to reduce cost of constructing delegates
       JSIL.SetValueProperty(resultDelegate, "$pin", pinImpl);
@@ -9534,7 +9656,7 @@ JSIL.MakeDelegate = function (fullName, isPublic, genericArguments, methodSignat
     } else {
       typeObject.__PInvokeInfo__ = null;
     }
-
+    typeObject.__Initializers__ = [];
     return staticClassObject;
   };
 
@@ -9660,6 +9782,11 @@ if (typeof (WeakMap) !== "undefined") {
 JSIL.ObjectHashCode = function (obj, virtualCall, thisType) {
   var type = typeof obj;
 
+  if (type === "number") {
+    //TODO: correct implementation for double/float
+    return (obj | 0);
+  }
+
   if (type === "object" || type == "string") {
     if (obj.GetHashCode && virtualCall)
       return (obj.GetHashCode() | 0);   
@@ -9715,7 +9842,7 @@ JSIL.GetMemberAttributes = function (memberInfo, inherit, attributeType, result)
 
   if (inherit) {
     if (!result)
-      result = [];
+      result = JSIL.Array.New($jsilcore.System.Attribute, 0);
 
     if (memberType === "System.RuntimeType") {
       var currentType = memberInfo;
@@ -9753,7 +9880,7 @@ JSIL.GetMemberAttributes = function (memberInfo, inherit, attributeType, result)
   }
 
   if (!result)
-    result = [];
+    result = JSIL.Array.New($jsilcore.System.Attribute, 0);
 
   for (var i = 0, l = attributes.length; i < l; i++) {
     var attribute = attributes[i];
@@ -10028,14 +10155,14 @@ JSIL.$EnumBasesOfType = function (typeObject, resultList) {
   }
 };
 
-JSIL.GetInterfacesImplementedByType = function (typeObject, walkInterfaceBases, allowDuplicates, includeDistance) {
+JSIL.GetInterfacesImplementedByType = function (typeObject, walkInterfaceBases, allowDuplicates, includeDistance, resultArrayType) {
   // FIXME: Memoize the result of this function?
 
   if (arguments.length < 3)
     JSIL.RuntimeError("3 arguments expected");
 
   var typeAndBases = JSIL.GetTypeAndBases(typeObject);
-  var result = [];
+  var result = resultArrayType ? JSIL.Array.New(resultArrayType.__ElementType__, 0) : [];
   var distanceList = [];
 
   // Walk in reverse to match the behavior of JSIL.Internal.TypeInfo.AllInterfacesRecursive
@@ -10144,6 +10271,11 @@ JSIL.$FindMatchingInterfacesThroughVariance = function (expectedInterfaceObject,
       var lhs = expectedInterfaceObject.__GenericArgumentValues__[vp.index];
       var rhs = iface.__GenericArgumentValues__[vp.index];
 
+      if (!lhs.__IsReferenceType__ || !rhs.__IsReferenceType__) {
+        ifaceResult = false;
+        break;
+      }
+
       var parameterResult = true;
       var foundIndex = -1;
 
@@ -10156,8 +10288,9 @@ JSIL.$FindMatchingInterfacesThroughVariance = function (expectedInterfaceObject,
           foundIndex = typeAndBasesLhs.indexOf(rhs);
         }
 
-        if (foundIndex < 0)
+        if (foundIndex < 0) {
           ifaceResult = parameterResult = false;
+        }
       } 
 
       if (vp.out) {
@@ -10230,7 +10363,10 @@ JSIL.WrapCastMethodsForInterfaceVariance = function (typeObject, isFunction, asF
     return result;
   }
 
-  result.is = function Is_VariantInterface (value) {
+  result.is = function Is_VariantInterface(value) {
+    if (value === null)
+      return false;
+
     var result = isFunction(value);
 
     if (trace)
@@ -10245,7 +10381,10 @@ JSIL.WrapCastMethodsForInterfaceVariance = function (typeObject, isFunction, asF
     return result;
   };
 
-  result.as = function As_VariantInterface (value) {
+  result.as = function As_VariantInterface(value) {
+    if (value === null)
+      return null;
+
     var result = asFunction(value);
 
     if (trace && !result)
@@ -10275,7 +10414,7 @@ JSIL.$GenerateVariantInvocationCandidates = function (interfaceObject, signature
 
   if (!matchingInterfaces.length)
     return null;
-  else if (!signature.openSignature) {
+  else if (signature != null && !signature.openSignature) {
     // FIXME: Is this right?
     return null;
   }
@@ -10292,13 +10431,18 @@ JSIL.$GenerateVariantInvocationCandidates = function (interfaceObject, signature
   generate_candidates:
   for (var i = 0, l = matchingInterfaces.length; i < l; i++) {
     var record = matchingInterfaces[i];
+    var candidate;
 
-    // FIXME: This is incredibly expensive.
-    var variantSignature = JSIL.$ResolveGenericMethodSignature(
-      record.interface, signature.openSignature, record.interface.__PublicInterface__
-    );
+    if (signature != null) {
+      // FIXME: This is incredibly expensive.
+      var variantSignature = JSIL.$ResolveGenericMethodSignature(
+        record.interface, signature.openSignature, record.interface.__PublicInterface__
+      );
 
-    var candidate = variantSignature.GetNamedKey(qualifiedMethodName, true);
+      candidate = variantSignature.GetNamedKey(qualifiedMethodName, true);
+    } else {
+      candidate = JSIL.$GetSignaturePrefixForType(record.interface) + qualifiedMethodName;
+    }
 
     if (trace)
       System.Console.WriteLine("Candidate (distance {0}): {1}", record.distance, candidate);
@@ -10309,50 +10453,7 @@ JSIL.$GenerateVariantInvocationCandidates = function (interfaceObject, signature
   return result;
 };
 
-JSIL.$GetStringEnumerator = function () {
-    return JSIL.GetEnumerator(this, $jsilcore.System.Char.__Type__, true);  
-};
-
 $jsilcore.$GetArrayEnumeratorImplementations = {};
-
-JSIL.$GetEnumeratorFallback = function (interfaceTypeObject, signature, thisReference) {
-  if (typeof (thisReference) === "string") {
-    return JSIL.$GetStringEnumerator;
-  } else if (JSIL.IsArray(thisReference)) {
-    var enumeratorTypeArgument = $jsilcore.System.Object.__Type__;
-    if (interfaceTypeObject.IsGenericType) {
-      enumeratorTypeArgument = interfaceTypeObject.__GenericArgumentValues__[0];
-    }
-
-    var key = enumeratorTypeArgument.__TypeId__;
-    var result = $jsilcore.$GetArrayEnumeratorImplementations[key];
-    if (!result) {
-      $jsilcore.$GetArrayEnumeratorImplementations[key] = result = function () { 
-        return JSIL.GetEnumerator(this, enumeratorTypeArgument, true); 
-      };
-    }
-
-    return result;
-  } else {
-    JSIL.RuntimeError("Object of type '" + JSIL.GetType(thisReference) + "' has no implementation of " + signature.toString("GetEnumerator"));
-  }
-};
-
-// FIXME: This can probably be replaced with compiler and/or runtime intelltypeigence 
-//  to create interface overlays for strings, just like arrays.
-JSIL.$PickFallbackMethodForInterfaceMethod = function (interfaceObject, methodName, signature) {
-  // HACK: Ensures that you can enumerate the chars of a JS string or array in cases where they lack an overlay.
-  if (
-    (
-      (interfaceObject.__FullName__ === "System.Collections.Generic.IEnumerable`1") ||
-      (interfaceObject.__FullName__ === "System.Collections.IEnumerable")
-    ) && (methodName === "GetEnumerator")
-  ) {
-    return JSIL.$GetEnumeratorFallback;
-  }
-
-  return null;
-};
 
 JSIL.$DoTypesMatch = function (expected, type) {
   if (expected === null)
@@ -10532,7 +10633,7 @@ JSIL.$IgnoredPrototypeMembers = [
 ];
 
 JSIL.$IgnoredPublicInterfaceMembers = [
-  "__Type__", "__TypeId__", "__ThisType__", "__TypeInitialized__", "__IsClosed__", "prototype", 
+  "__Type__", "__TypeId__", "__ThisType__", "__TypeInitialized__", "__TypeInitializing__", "__IsClosed__", "prototype",
   "Of", "toString", "__FullName__", "__OfCache__", "Of$NoInitialize",
   "GetType", "__ReflectionCache__", "__Members__", "__ThisTypeId__",
   "__RanCctors__", "__RanFieldInitializers__", "__PreInitMembrane__",
@@ -10666,8 +10767,9 @@ JSIL.GetMethodInfo = function(typeObject, name, signature, isStatic, methodGener
     if (method._data.signature.Hash == signature.Hash){
       if (JSIL.IsArray(methodGenericParameters)) {
         var genericParameterTypes = [];
-        for (var i = 0, l = methodGenericParameters.length; i < l; i++) {
-          genericParameterTypes.push(methodGenericParameters[i].get().__Type__);
+        for (var k = 0, m = methodGenericParameters.length; k < m; k++) {
+          var arg = methodGenericParameters[k];
+          genericParameterTypes.push(arg instanceof JSIL.TypeRef ? arg.get().__Type__ : arg);
         }
         return method.MakeGenericMethod(genericParameterTypes);
       }
@@ -10708,12 +10810,12 @@ JSIL.$FormatStringImpl = function (format, values) {
     var value = values[index];
 
     if (alignment || valueFormat) {
-      return JSIL.NumberToFormattedString(value, alignment, valueFormat);
+      return JSIL.NumberToFormattedString(value.valueOf(), alignment, valueFormat);
 
     } else {
 
-      if (typeof (value) === "boolean") {
-        if (value)
+      if (JSIL.GetType(value) === $jsilcore.System.Boolean.__Type__) {
+        if (value.valueOf())
           return "True";
         else
           return "False";
@@ -10736,3 +10838,112 @@ JSIL.Array.IndexOf = function (array, startIndex, count, value) {
 
   return -1;
 };
+
+JSIL.MethodPointerInfo = function(typeObject, name, signature, isStatic, isVirtual, methodGenericParameters) {
+  this.TypeObject = typeObject;
+  this.Name = name;
+  this.Signature = signature;
+  this.IsStatic = isStatic;
+  this.MethodGenericParameters = methodGenericParameters || null;
+  this.IsVirtual = isVirtual;
+  this.MethodInfoResolved = false;
+  this.MethodInfo = null;
+
+  var useGenericSuffix = this.MethodGenericParameters !== null && this.MethodGenericParameters.length > 0;
+
+  this.NameWithGenericSuffix = useGenericSuffix ? (name + "$b" + this.MethodGenericParameters.length) : name;
+}
+
+JSIL.MethodPointerInfo.FromMethodInfo = function (methodInfo) {
+  var signature = methodInfo._data.signature;
+  var genericArgs = null;
+  if (JSIL.IsArray(signature.genericArgumentValues)) {
+    genericArgs = signature.genericArgumentValues;
+    signature = signature.openSignature;
+  }
+
+  var methodPointerInfo = new JSIL.MethodPointerInfo(
+    methodInfo._typeObject.__PublicInterface__,
+    methodInfo._descriptor.Name,
+    signature,
+    methodInfo._descriptor.Static,
+    methodInfo._descriptor.Virtual,
+    genericArgs);
+
+  methodPointerInfo.MethodInfo = methodInfo;
+  methodPointerInfo.MethodInfoResolved = true;
+  return methodPointerInfo;
+}
+
+JSIL.MethodPointerInfo.prototype.resolveMethodInfo = function () {
+  if (!this.MethodInfoResolved) {
+    this.MethodInfoResolved = true;
+    this.MethodInfo = JSIL.GetMethodInfo(this.TypeObject, this.Name, this.Signature, this.IsStatic, this.MethodGenericParameters);
+  }
+
+  return this.MethodInfo;
+}
+
+JSIL.MethodPointerInfo.prototype.createInvocationFunction = function(thisObject) {
+  if (this.TypeObject.__Type__.IsInterface) {
+    return JSIL.MethodPointerInfo.$createInvocationMethod("InvokeInterface", this, thisObject);
+  } else if (this.IsStatic) {
+    return JSIL.MethodPointerInfo.$createInvocationMethod("InvokeStatic", this, thisObject);
+  } else if (!this.IsVirtual) {
+    return JSIL.MethodPointerInfo.$createInvocationMethod("InvokeInstance", this, thisObject);
+  } else {
+    return JSIL.MethodPointerInfo.$createInvocationMethod("InvokeVirtual", this, thisObject);
+  }
+}
+
+JSIL.MethodPointerInfo.$invocationStrings =
+{
+  InvokeStatic: "return methodPointer.Signature.CallStatic(methodPointer.TypeObject, methodPointer.NameWithGenericSuffix, methodPointer.MethodGenericParameters",
+  InvokeInstance: "return methodPointer.Signature.Call(methodPointer.TypeObject.prototype, methodPointer.NameWithGenericSuffix, methodPointer.MethodGenericParameters, thisObject",
+  InvokeVirtual: "return methodPointer.Signature.CallVirtual(methodPointer.NameWithGenericSuffix, methodPointer.MethodGenericParameters, thisObject",
+  InvokeInterface: "return methodPointer.Signature.CallVirtual(methodPointer.TypeObject[methodPointer.NameWithGenericSuffix], methodPointer.MethodGenericParameters, thisObject"
+};
+
+JSIL.MethodPointerInfo.$createInvocationMethod = function (key, methodPointerInfo, thisObject) {
+  var argsCount = JSIL.IsArray(methodPointerInfo.Signature.argumentTypes) ? methodPointerInfo.Signature.argumentTypes.length : 0;
+  var saveThis = thisObject !== null;
+  var fullKey = key + (saveThis ? "" : "Detached") + argsCount;
+
+  if (!(fullKey in JSIL.MethodPointerInfo)) {
+    var i = 0;
+    var innerArgs = [];
+    var innerBody = [];
+    var closureArgs = ["methodPointer"];
+
+    innerBody.push(JSIL.MethodPointerInfo.$invocationStrings[key]);
+    if (key === "InvokeStatic") {
+      for (i = 0; i < argsCount; i++) {
+        if (i === 0 && saveThis) {
+          closureArgs.push("arg" + i);
+        } else {
+          innerArgs.push("arg" + i);
+        }
+        innerBody.push(", arg" + i);
+      }
+    } else {
+      if (!saveThis) {
+        innerArgs.push("thisObject");
+      } else {
+        closureArgs.push("thisObject");
+      }
+
+      for (i = 0; i < argsCount; i++) {
+        innerArgs.push("arg" + i);
+        innerBody.push(", arg" + i);
+      }
+    }
+
+    innerBody.push(")");
+
+    JSIL.MethodPointerInfo[fullKey] = JSIL.CreateRebindableNamedFunction("JSIL.MethodPointerInfo." + fullKey, innerArgs, innerBody.join(""), closureArgs);
+  }
+
+  return JSIL.MethodPointerInfo[fullKey](methodPointerInfo, thisObject);
+}
+
+

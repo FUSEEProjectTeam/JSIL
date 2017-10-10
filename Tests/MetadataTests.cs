@@ -97,6 +97,7 @@ namespace JSIL.Tests {
         }
 
         [Test]
+        [FailsOnMono]
         public void JSReplacementReplacesMethods () {
             var generatedJs = GenericTest(
                 @"SpecialTestCases\ReplaceMethod.cs",
@@ -445,7 +446,7 @@ namespace JSIL.Tests {
 
                 Assert.Fail("Translated JS ran successfully");
             } catch (JavaScriptEvaluatorException jse) {
-                Assert.IsTrue(jse.ToString().Contains("TypeError: document is undefined"), jse.ToString());
+                Assert.IsTrue(jse.ToString().Contains("TypeError: realTarget is undefined"), jse.ToString());
             }
         }
 
@@ -459,7 +460,7 @@ namespace JSIL.Tests {
 
                 Assert.Fail("Translated JS ran successfully");
             } catch (JavaScriptEvaluatorException jse) {
-                Assert.IsTrue(jse.ToString().Contains("TypeError: obj is undefined"), jse.ToString());
+                Assert.IsTrue(jse.ToString().Contains("TypeError: realTarget is undefined"), jse.ToString());
             }
         }
 
@@ -495,6 +496,8 @@ namespace JSIL.Tests {
                 }, () => {
                     var configuration = MakeConfiguration();
                     configuration.FilenameEscapeRegex = "[^A-Za-z0-9 _]";
+                    // We don't escape manifest
+                    configuration.SkipManifestCreation = true;
                     return configuration;
                 });
 
