@@ -527,7 +527,7 @@ JSIL.GetAssembly = function (assemblyName, requireExisting) {
 
   JSIL.SetValueProperty(result, "TypeRef", 
     function (name, ga) {
-	  return new JSIL.TypeRef(result, name, ga);
+      return new JSIL.TypeRef(result, name, ga);
     }, false
   );
 
@@ -1320,7 +1320,6 @@ JSIL.$ExternalMemberWarningFormat =
 
 JSIL.$ExternalMemberInheritedWarningFormat = 
   "The external method '{0}' of type '{1}' has not been implemented; calling inherited method.";
-
 
 JSIL.MakeExternalMemberStub = function (namespaceName, getMemberName, inheritedMember) {
   var state = {
@@ -7387,12 +7386,10 @@ JSIL.SignatureBase.prototype.LookupMethod = function (context, name) {
   if (typeof (method) !== "function") {
     var signature = this.toString(name);
 
-    /*JSIL.RuntimeError(
+    JSIL.RuntimeError(
       "No method with signature '" + signature +
       "' defined in context '" + JSIL.GetTypeName(context) + "'"
-    );*/
-	
-    method = JSIL.MakeExternalMember(JSIL.GetTypeName(context), name);
+    );
   }
 
   return method;

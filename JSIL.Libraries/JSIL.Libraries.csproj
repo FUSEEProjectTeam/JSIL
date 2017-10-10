@@ -287,13 +287,8 @@
     <Content Include="Sources\gamepad.js" />
     <Content Include="Sources\JSIL.Bootstrap.Dynamic.js" />
     <Content Include="Sources\JSIL.Bootstrap.Text.js" />
-    <Content Include="Sources\mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089.js" />
     <Content Include="Sources\StubbedBCL\JSIL.IO.js" />
     <Content Include="Sources\StubbedBCL\JSIL.XML.js" />
-    <Content Include="Sources\System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089.js" />
-    <Content Include="Sources\System.Configuration, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a.js" />
-    <Content Include="Sources\System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089.js" />
-    <Content Include="Sources\System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089.js" />
     <Content Include="Sources\TranslatedBCL\JSIL.Bootstrap.js" />
     <Content Include="Sources\IgnoredBCL\JSIL.Bootstrap.js" />
     <Content Include="Sources\JSIL.Bootstrap.Async.js" />
@@ -334,7 +329,6 @@
     <Content Include="Sources\TranslatedBCL\JSIL.IO.js" />
     <Content Include="Sources\TranslatedBCL\JSIL.XML.js" />
     <Content Include="Sources\webgl-2d.js" />
-    <Content Include="Sources\XNA4.js" />
     <Content Include="Sources\XNA\Audio.js" />
     <Content Include="Sources\XNA\Content.js" />
     <Content Include="Sources\XNA\Graphics.js" />

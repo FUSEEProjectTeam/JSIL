@@ -72,7 +72,7 @@ function doXHR (uri, asBinary, onComplete) {
 
   needCORS = needCORS && !sameHost;
 
-  /*if (location.protocol === "file:") {
+  if (location.protocol === "file:") {
     var errorText = "Loading assets from file:// is not possible in modern web browsers. You must host your application on a web server.";
 
     if (console && console.error) {
@@ -82,7 +82,7 @@ function doXHR (uri, asBinary, onComplete) {
     } else {
       throw new Error(errorText);
     }
-  } else {*/
+  } else {
     req = new XMLHttpRequest();
 
     if (needCORS && !("withCredentials" in req)) {
@@ -98,7 +98,7 @@ function doXHR (uri, asBinary, onComplete) {
         onComplete(null, "CORS unavailable");
         return;
       }
-    //}
+    }
   }
 
   var isDone = false;
@@ -413,17 +413,6 @@ var assetLoaders = {
       }
     });
   },
-   "Font": function loadFont (filename, data, onError, onDoneLoading) {
-    loadBinaryFileAsync(jsilConfig.fileRoot + filename, function (result, error) {
-      if ((result !== null) && (!error)) {
-        $jsilbrowserstate.allAssetNames.push(filename);
-        allAssets[getAssetName(filename)] = opentype.parse(result.buffer);
-        onDoneLoading(null);
-      } else {
-        onError(error);
-      }
-    });
-  },
   "SoundBank": function loadSoundBank (filename, data, onError, onDoneLoading) {
     loadTextAsync(jsilConfig.contentRoot + filename, function (result, error) {
       if ((result !== null) && (!error)) {
@@ -547,4 +536,8 @@ function initAssetLoaders () {
   JSIL.InitBlobBuilder();
   initCORSHack();
   initSoundLoader();
+
+  $makeXNBAssetLoader("XNB", "RawXNBAsset");
+  $makeXNBAssetLoader("SpriteFont", "SpriteFontAsset");
+  $makeXNBAssetLoader("Texture2D", "Texture2DAsset");
 };
